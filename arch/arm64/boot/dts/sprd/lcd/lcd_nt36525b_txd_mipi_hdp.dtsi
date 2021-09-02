@@ -1,0 +1,131 @@
+/ {
+	fragment {
+		target-path = "/";
+		__overlay__ {
+			 lcds {
+				lcd_nt36525b_txd_mipi_hdp: lcd_nt36525b_txd_mipi_hdp {
+
+					sprd,dsi-work-mode = <1>; /* video burst mode*/
+					sprd,dsi-lane-number = <4>;
+					sprd,dsi-color-format = "rgb888";
+
+					sprd,phy-bit-clock = <660000>;	/* kbps */
+					sprd,phy-escape-clock = <20000>;/* kHz */
+
+					sprd,width-mm = <68>;
+					sprd,height-mm = <151>;
+
+					sprd,esd-check-enable = <1>;
+					sprd,esd-check-mode = <1>;
+					sprd,esd-check-period = <2000>;
+					sprd,esd-check-register = <0x0A>;
+					sprd,esd-check-value = <0x9C>;
+
+					sprd,reset-on-sequence = <0 5>, <1 5>, <0 5>, <1 20>;
+					sprd,reset-off-sequence = <0 5>;
+
+					sprd,use-dcs-write;
+					// sprd,dsi-non-continuous-clock;
+
+					sprd,initial-command = [
+						15 00 00 02 FF 23
+						15 00 00 02 FB 01
+						15 00 00 02 00 80
+						15 00 00 02 07 00
+						15 00 00 02 08 02
+						15 00 00 02 09 00
+						//CABC_PWM_UI 55 01
+						15 00 00 02 30 FA
+						15 00 00 02 31 F9
+						15 00 00 02 32 F8
+						15 00 00 02 33 F7
+						15 00 00 02 34 F5
+						15 00 00 02 35 F3
+						15 00 00 02 36 F1
+						15 00 00 02 37 EE
+						15 00 00 02 38 EB
+						15 00 00 02 39 E7
+						15 00 00 02 3A E3
+						15 00 00 02 3B DF
+						15 00 00 02 3D DC
+						15 00 00 02 3F D9
+						15 00 00 02 40 D6
+						15 00 00 02 41 D4
+
+						//CABC_PWM_MOV 55 02
+						15 00 00 02 45 FA
+						15 00 00 02 46 F7
+						15 00 00 02 47 F2
+						15 00 00 02 48 EB
+						15 00 00 02 49 E1
+						15 00 00 02 4A D7
+						15 00 00 02 4B CD
+						15 00 00 02 4C C4
+						15 00 00 02 4D BB
+						15 00 00 02 4E B5
+						15 00 00 02 4F B0
+						15 00 00 02 50 AC
+						15 00 00 02 51 AB
+						15 00 00 02 52 AA
+						15 00 00 02 53 A8
+						15 00 00 02 54 A7
+						15 00 00 02 FF 10
+						15 00 00 02 FB 01
+						39 00 00 03 68 03 01
+						39 00 00 03 51 00 00
+						15 00 00 02 53 2C
+						15 00 00 02 55 00
+						05 64 00 01 11
+						05 14 00 01 29
+						15 14 00 02 35 00
+					];
+
+					sprd,sleep-in-command =  [
+						05 14 00 01 28
+						05 64 00 01 10
+					];
+
+					sprd,sleep-out-command = [
+						05 64 00 01 11
+						05 14 00 01 29
+					];
+
+					sprd,cabc-ui-mode = [
+						15 00 00 02 55 01
+						];
+
+					sprd,cabc-mov-mode = [
+						15 00 00 02 55 02
+						];
+
+					sprd,cabc-off-mode = [
+						15 00 00 02 55 00
+						];
+					oled-backlight {
+						default-brightness-level = <1023>;
+						sprd,max-level = <4095>;
+
+						brightness-levels = [
+							39 00 00 03 51 0F FF
+						];
+					};
+					display-timings {
+						native-mode = <&nt36525b_timing0>;
+
+						nt36525b_timing0: timing0 {
+							clock-frequency = <96000000>;
+							hactive = <720>;
+							vactive = <1600>;
+							hback-porch = <60>;
+							hfront-porch = <67>;
+							vback-porch = <252>;
+							vfront-porch = <12>;
+							hsync-len = <7>;
+							vsync-len = <2>;
+						};
+					};
+				};
+			};
+		};
+	};
+};
