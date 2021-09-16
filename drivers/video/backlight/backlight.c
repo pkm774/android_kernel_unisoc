@@ -226,9 +226,9 @@ static ssize_t brightness_hbm_store(struct device *dev,
 	pr_debug(" the brightness_hbm_status:%d !\n", brightness_hbm_status);
 
 	if (1 == brightness_hbm_status) {
-		rc = backlight_device_set_brightness(bd, 4095);
+		rc = backlight_device_set_brightness(bd, 255);
 	} else {
-		rc = backlight_device_set_brightness(bd, 3770); /*3767 = 4095*0.92*/
+		rc = backlight_device_set_brightness(bd, 255);
 	}
 	return rc ? rc : count;
 }
@@ -266,7 +266,7 @@ static ssize_t max_brightness_store(struct device *dev,
 		bd->props.max_brightness = maxbrightness;
 		if (bd->props.brightness > maxbrightness) {
 			bd->props.brightness = maxbrightness;
-			backlight_update_status(bd);
+			// backlight_update_status(bd);
 		}
 	}
 	mutex_unlock(&bd->ops_lock);

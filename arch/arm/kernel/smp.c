@@ -54,6 +54,8 @@
 #include <asm/virt.h>
 #include <asm/mach/arch.h>
 #include <asm/mpu.h>
+#include <asm/system_misc.h>
+#include <linux/soc/sprd/sprd_sysdump.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
@@ -605,13 +607,6 @@ static DEFINE_RAW_SPINLOCK(stop_lock);
  */
 static void ipi_cpu_stop(unsigned int cpu)
 {
-	if (system_state <= SYSTEM_RUNNING) {
-		raw_spin_lock(&stop_lock);
-		pr_crit("CPU%u: stopping\n", cpu);
-		dump_stack();
-		raw_spin_unlock(&stop_lock);
-	}
-
 	set_cpu_online(cpu, false);
 
 	local_fiq_disable();
@@ -681,9 +676,20 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 
 	case IPI_CPU_STOP:
 		irq_enter();
-		#ifdef CONFIG_SPRD_SYSDUMP
-			sysdump_ipi(regs);
-		#endif
+#ifdef CONFIG_SPRD_SYSDUMP
+		if (system_state <= SYSTEM_RUNNING) {
+			struct pt_regs pregs;
+
+			raw_spin_lock(&stop_lock);
+			pr_crit("CPU%u: stopping\n", cpu);
+			dump_stack();
+			memset(&pregs, 0x00, sizeof(pregs));
+			get_pt_regs(&pregs);
+			sprd_dump_stack_reg(cpu, &pregs);
+			raw_spin_unlock(&stop_lock);
+		}
+		sysdump_ipi(regs);
+#endif
 		ipi_cpu_stop(cpu);
 		irq_exit();
 		break;

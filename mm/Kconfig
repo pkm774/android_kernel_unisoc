@@ -131,6 +131,10 @@ config SPARSEMEM_VMEMMAP
 config HAVE_MEMBLOCK
 	bool
 
+config MEMBLOCK_MEMSIZE
+	bool "memblock based reserved memory profiling"
+	default y
+
 config HAVE_MEMBLOCK_NODE_MAP
 	bool
 

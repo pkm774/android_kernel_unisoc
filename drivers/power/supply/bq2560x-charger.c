@@ -80,6 +80,9 @@
 #define BQ2560X_DISABLE_PIN_MASK		BIT(0)
 #define BQ2560X_DISABLE_PIN_MASK_2721		BIT(15)
 
+#define BQ2560X_DISABLE_BATFET_RST_MASK         BIT(2)
+#define BQ2560X_DISABLE_BATFET_RST_SHIFT        2
+
 #define BQ2560X_OTG_VALID_MS			500
 #define BQ2560X_FEED_WATCHDOG_VALID_MS		50
 #define BQ2560X_OTG_RETRY_TIMES			10
@@ -432,6 +435,12 @@ static int bq2560x_charger_hw_init(struct bq2560x_charger_info *info)
 			dev_err(info->dev, "set bq2560x limit current failed\n");
 	}
 
+	ret = bq2560x_update_bits(info, BQ2560X_REG_7,
+				  BQ2560X_DISABLE_BATFET_RST_MASK,
+				  0x0 << BQ2560X_DISABLE_BATFET_RST_SHIFT);
+	if (ret)
+		dev_err(info->dev, "disable batfet_rst_en failed\n");
+
 	info->current_charge_limit_cur = BQ2560X_REG_ICHG_LSB * 1000;
 	info->current_input_limit_cur = BQ2560X_REG_IINDPM_LSB * 1000;
 
@@ -470,7 +479,7 @@ static int bq2560x_charger_start_charge(struct bq2560x_charger_info *info)
 {
 	int ret = 0;
 
-	dev_err(info->dev, "lqb %s()\n", __func__);
+	dev_err(info->dev, "lqb %s():is_charge_enabled=%d\n", __func__,info->is_charge_enabled);
 	info->is_charge_enabled = true;
 	ret = bq2560x_update_bits(info, BQ2560X_REG_0,
 				  BQ2560X_REG_EN_HIZ_MASK, 0);
@@ -894,7 +903,7 @@ static int bq2560x_charger_set_status(struct bq2560x_charger_info *info,
 	if (val > CM_FAST_CHARGE_NORMAL_CMD)
 		return 0;
 
-	if (!val && info->charging) {
+	if (!val && (info->charging || !info->is_charge_enabled)) {
 		bq2560x_check_wireless_charge(info, false);
 		bq2560x_charger_stop_charge(info);
 		info->charging = false;
@@ -1177,6 +1186,7 @@ static int bq2560x_charger_usb_set_property(struct power_supply *psy,
 
 	case POWER_SUPPLY_PROP_CHARGE_ENABLED:
 		info->is_charge_enabled = !!val->intval;
+		pr_err("lqb %s():is_charge_enabled=%d\n", __func__,info->is_charge_enabled);
 	case POWER_SUPPLY_PROP_STATUS:
 		ret = bq2560x_charger_set_status(info, val->intval);
 		if (ret < 0)
@@ -2021,7 +2031,6 @@ error_sysfs:
 	sysfs_remove_group(&info->psy_usb->dev.kobj, &info->sysfs->attr_g);
 	usb_unregister_notifier(info->usb_phy, &info->usb_notify);
 err_psy_usb:
-	power_supply_unregister(info->psy_usb);
 	if (info->irq_gpio)
 		gpio_free(info->irq_gpio);
 err_regmap_exit:
@@ -2030,7 +2039,7 @@ err_regmap_exit:
 	mutex_destroy(&info->lock);
 	return ret;
 }
-#if 0
+
 static void bq2560x_charger_shutdown(struct i2c_client *client)
 {
 	struct bq2560x_charger_info *info = i2c_get_clientdata(client);
@@ -2054,7 +2063,7 @@ static void bq2560x_charger_shutdown(struct i2c_client *client)
 				"enable charger detection function failed ret = %d\n", ret);
 	}
 }
-#endif
+
 static int bq2560x_charger_remove(struct i2c_client *client)
 {
 	struct bq2560x_charger_info *info = i2c_get_clientdata(client);
@@ -2163,6 +2172,7 @@ static struct i2c_driver bq2560x_master_charger_driver = {
 	},
 	.probe = bq2560x_charger_probe,
 	.remove = bq2560x_charger_remove,
+	.shutdown = bq2560x_charger_shutdown,
 	.id_table = bq2560x_i2c_id,
 };
 #if 0

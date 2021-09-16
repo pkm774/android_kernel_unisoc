@@ -43,6 +43,8 @@
 
 #include "irq-gic-common.h"
 
+#include <linux/sprd_ktp.h>
+
 struct redist_region {
 	void __iomem		*redist_base;
 	phys_addr_t		phys_base;
@@ -353,6 +355,8 @@ static asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs
 		if (likely(irqnr > 15 && irqnr < 1020) || irqnr >= 8192) {
 			int err;
 
+			kevent_tp(KTP_IRQ, (void *)(uintptr_t)irqnr);
+
 			if (static_key_true(&supports_deactivate))
 				gic_write_eoir(irqnr);
 			else
@@ -373,6 +377,7 @@ static asmlinkage void __exception_irq_entry gic_handle_irq(struct pt_regs *regs
 			continue;
 		}
 		if (irqnr < 16) {
+			kevent_tp(KTP_IRQ, (void *)(uintptr_t)irqnr);
 			gic_write_eoir(irqnr);
 			if (static_key_true(&supports_deactivate))
 				gic_write_dir(irqnr);

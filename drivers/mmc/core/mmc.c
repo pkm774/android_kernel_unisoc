@@ -845,7 +845,7 @@ MMC_DEV_ATTR(raw_rpmb_size_mult, "%#x\n", card->ext_csd.raw_rpmb_size_mult);
 MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
 MMC_DEV_ATTR(ocr, "0x%08x\n", card->ocr);
 MMC_DEV_ATTR(cmdq_en, "%d\n", card->ext_csd.cmdq_en);
-MMC_DEV_ATTR(unid, "%c%02x%05x%02x%08x%01x%01x\n", 'L', card->cid.manfid, card->cid.tmp_name, 
+MMC_DEV_ATTR(unid, "%c%02X%05X%02X%08X%01X%01X\n", 'L', card->cid.manfid, card->cid.tmp_name, 
 	 card->cid.prv,card->cid.serial, card->cid.month, (card->cid.year>2013? (card->cid.year-1997-16):(card->cid.year-1997)));
 
 

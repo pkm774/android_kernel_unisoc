@@ -28,7 +28,12 @@
 #include <linux/console.h>
 #include <linux/bug.h>
 #include <linux/ratelimit.h>
+#include <asm/system_misc.h>
+#include <linux/soc/sprd/sprd_sysdump.h>
 
+#if IS_ENABLED(CONFIG_SEC_DEBUG)
+#include <linux/sec_debug.h>
+#endif
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
 
@@ -136,6 +141,9 @@ void sprd_emergency_restart(char *cmd)
 	}
 }
 #endif
+
+extern void get_pt_regs(struct pt_regs *);
+
 /**
  *	panic - halt the system
  *	@fmt: The text string to print
@@ -152,8 +160,17 @@ void panic(const char *fmt, ...)
 	int state = 0;
 	int old_cpu, this_cpu;
 	bool _crash_kexec_post_notifiers = crash_kexec_post_notifiers;
+#ifdef CONFIG_SPRD_SYSDUMP
+	struct pt_regs regs;
+
+	memset(&regs, 0x00, sizeof(regs));
+	get_pt_regs(&regs);
+#endif
 #ifdef CONFIG_SPRD_EIRQSOFF
 	irqsoff_path_panic_msg();
+#endif
+#if IS_ENABLED(CONFIG_SEC_USER_RESET_DEBUG)
+	sec_debug_store_extc_idx(false);
 #endif
 	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
@@ -190,6 +207,9 @@ void panic(const char *fmt, ...)
 	va_start(args, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
+#ifdef CONFIG_SPRD_SYSDUMP
+	sprd_dump_stack_reg(this_cpu, &regs);
+#endif
 	pr_emerg("Kernel panic - not syncing: %s\n", buf);
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 	/*

@@ -10,7 +10,8 @@ obj-y := sprd_drm.o \
 	sprd_dsi.o \
 	sprd_dphy.o \
 	sprd_panel.o \
-	sprd_dp.o
+	sprd_dp.o \
+	lcd_bias_i2c.o
 
 obj-y += dummy/dummy_crtc.o
 obj-y += dummy/dummy_connector.o

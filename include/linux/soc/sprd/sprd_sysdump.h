@@ -18,9 +18,14 @@ extern int minidump_save_extend_information(const char *name,
 						unsigned long paddr_start,
 						unsigned long paddr_end);
 
-
-
-
+/*
+ * save per-cpu's stack and regs in sysdump.
+ *
+ * @cpu:	the cpu number;
+ *
+ * @pregs:	pt_regs.
+ */
+extern void sprd_dump_stack_reg(int cpu, struct pt_regs *pregs);
 
 
 #endif

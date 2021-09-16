@@ -91,7 +91,8 @@
 			sprd,name = "sipc-lte";
 			sprd,dst = <5 2>; /* <dst core-id> */
 			/* <ap-addr dst-maped-addr size> */
-			sprd,smem-info = <0x87800000 0x87800000 0x800000>;
+			sprd,smem-info = <0x87800000 0x87800000 0x800000>,
+					<0x88300000 0x88300000 0x80000>;
 		};
 
 		sipc1: sipc@6500a400 {
@@ -176,6 +177,16 @@
 			sprd,ringnr = <1>;
 			sprd,size-rxbuf = <0x40>;
 			sprd,size-txbuf = <0x80>;
+		};
+
+		spipe@8 {
+			sprd,name = "stty_lte_ss";
+			sprd,dst = <5>;
+			sprd,channel = <88>;
+			sprd,smem = <1>;
+			sprd,ringnr = <4>;
+			sprd,size-rxbuf = <0x4400>;
+			sprd,size-txbuf = <0x4400>;
 		};
 	};
 

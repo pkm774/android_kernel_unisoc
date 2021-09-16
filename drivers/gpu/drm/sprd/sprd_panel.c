@@ -25,6 +25,7 @@
 #include "sprd_panel.h"
 #include "dsi/sprd_dsi_api.h"
 #include "sysfs/sysfs_display.h"
+#include "lcd_bias_i2c.h"
 
 #define SPRD_MIPI_DSI_FMT_DSC 0xff
 #define SPRD_OLED_DEFAULT_BRIGHTNESS 25
@@ -137,7 +138,9 @@ static int sprd_panel_prepare(struct drm_panel *p)
 		gpiod_direction_output(panel->info.avee_gpio, 1);
 		mdelay(5);
 	}
-
+/*2nd bias sm5109c need set avdd-avee again start*/
+	lcd_bias_set_avdd_avee();
+/*2nd bias sm5109c need set avdd-avee again end*/
 	if (panel->info.reset_gpio) {
 		items = panel->info.rst_on_seq.items;
 		timing = panel->info.rst_on_seq.timing;
@@ -453,6 +456,12 @@ static int sprd_panel_te_check(struct sprd_panel *panel)
 	return ret < 0 ? ret : 0;
 }
 
+static bool esd_trriger = false;
+void trriger_lcd_esd(void){
+	esd_trriger = true;
+}
+EXPORT_SYMBOL(trriger_lcd_esd);
+
 static void sprd_panel_esd_work_func(struct work_struct *work)
 {
 	struct sprd_panel *panel = container_of(work, struct sprd_panel,
@@ -469,13 +478,14 @@ static void sprd_panel_esd_work_func(struct work_struct *work)
 		return;
 	}
 
-	if (ret && panel->base.connector && panel->base.connector->encoder) {
+	if ((esd_trriger || ret) && panel->base.connector && panel->base.connector->encoder) {
 		const struct drm_encoder_helper_funcs *funcs;
 		struct drm_encoder *encoder;
 
 		encoder = panel->base.connector->encoder;
 		funcs = encoder->helper_private;
 		panel->esd_work_pending = false;
+		esd_trriger = false;
 
 		if (!encoder->crtc || (encoder->crtc->state &&
 		    !encoder->crtc->state->active)) {
@@ -672,6 +682,9 @@ static int sprd_oled_set_brightness(struct backlight_device *bdev)
 		DRM_WARN("oled panel has been powered off\n");
 		return -ENXIO;
 	}
+
+	if (bdev->props.brightness > 255)
+		bdev->props.brightness = 255;
 
 	brightness = bdev->props.brightness;
 

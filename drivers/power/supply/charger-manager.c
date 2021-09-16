@@ -1207,6 +1207,7 @@ static bool cm_primary_charger_enable(struct charger_manager *cm, bool enable)
 	}
 
 	val.intval = enable;
+	pr_err("%s:val=%d\n",__func__,val.intval);
 	ret = power_supply_set_property(psy, POWER_SUPPLY_PROP_CHARGE_ENABLED, &val);
 	power_supply_put(psy);
 	if (ret) {
@@ -1678,6 +1679,7 @@ static int cm_set_main_charger_current(struct charger_manager *cm, int cmd)
 	}
 
 	val.intval = cmd;
+	pr_err("%s:val=%d\n",__func__,val.intval);
 	ret = power_supply_set_property(psy, POWER_SUPPLY_PROP_STATUS, &val);
 	power_supply_put(psy);
 	if (ret) {
@@ -2150,6 +2152,7 @@ static  bool cm_cp_master_charger_enable(struct charger_manager *cm, bool enable
 	}
 
 	val.intval = enable;
+	pr_err("%s:val=%d\n",__func__,val.intval);
 	ret = power_supply_set_property(cp_psy, POWER_SUPPLY_PROP_CHARGE_ENABLED, &val);
 	power_supply_put(cp_psy);
 	if (ret) {
@@ -3063,6 +3066,7 @@ static int try_charger_enable_by_psy(struct charger_manager *cm, bool enable)
 		}
 
 		val.intval = enable;
+		pr_err("%s:val=%d\n",__func__,val.intval);
 		err = power_supply_set_property(psy, POWER_SUPPLY_PROP_STATUS, &val);
 		power_supply_put(psy);
 		if (err)
@@ -3188,7 +3192,7 @@ static void try_wireless_charger_enable(struct charger_manager *cm, bool enable)
 static int try_charger_enable(struct charger_manager *cm, bool enable)
 {
 	int err = 0;
-
+	pr_err("%s:%d\n",__func__,enable);
 	try_fast_charger_enable(cm, enable);
 
 	/* Ignore if it's redundant command */
@@ -3645,19 +3649,26 @@ static int cm_manager_get_jeita_status(struct charger_manager *cm, int cur_temp)
 	} else if (temp_status == 0) {
 		jeita_status = 0;
 	/* temperature goes down */
-	} else if (last_temp > cur_temp) {
-		if (desc->jeita_tab[temp_status].temp > desc->jeita_tab[temp_status].recovery_temp)
-			jeita_status = recovery_temp_status;
-		else if (desc->jeita_tab[temp_status].temp < desc->jeita_tab[temp_status].recovery_temp)
+	} else if (last_temp >= cur_temp) {
+		if (recovery_temp_status == desc->jeita_tab_size) {
+			if (jeita_status >= recovery_temp_status)
+				jeita_status = recovery_temp_status;
+		} else if (desc->jeita_tab[recovery_temp_status].temp > desc->jeita_tab[recovery_temp_status].recovery_temp) {
+			if (jeita_status >= recovery_temp_status)
+				jeita_status = recovery_temp_status;
+		} else if (desc->jeita_tab[temp_status].temp < desc->jeita_tab[temp_status].recovery_temp) {
 			jeita_status = temp_status;
+		}
 	/* temperature goes up */
 	} else if (last_temp < cur_temp) {
-		if (recovery_temp_status == desc->jeita_tab_size)
+		if (recovery_temp_status == desc->jeita_tab_size) {
 			jeita_status = temp_status;
-		else if (desc->jeita_tab[recovery_temp_status].temp < desc->jeita_tab[recovery_temp_status].recovery_temp)
-			jeita_status = recovery_temp_status;
-		else if (desc->jeita_tab[recovery_temp_status].temp > desc->jeita_tab[recovery_temp_status].recovery_temp)
+		} else if (desc->jeita_tab[recovery_temp_status].temp < desc->jeita_tab[recovery_temp_status].recovery_temp) {
+			if (jeita_status <= recovery_temp_status)
+				jeita_status = recovery_temp_status;
+		} else if (desc->jeita_tab[temp_status].temp > desc->jeita_tab[temp_status].recovery_temp) {
 			jeita_status = temp_status;
+		}
 	}
 
 	last_temp = cur_temp;
@@ -3752,12 +3763,6 @@ static int cm_get_target_status(struct charger_manager *cm)
 {
 	int ret;
 
-	if (!is_ext_pwr_online(cm))
-		return POWER_SUPPLY_STATUS_DISCHARGING;
-
-	if (cm_check_thermal_status(cm))
-		return POWER_SUPPLY_STATUS_NOT_CHARGING;
-
 	/*
 	 * Adjust the charging current according to current battery
 	 * temperature jeita table.
@@ -3765,6 +3770,12 @@ static int cm_get_target_status(struct charger_manager *cm)
 	ret = cm_manager_jeita_current_monitor(cm);
 	if (ret)
 		dev_warn(cm->dev, "Errors orrurs when adjusting charging current\n");
+
+	if (!is_ext_pwr_online(cm) || (!is_batt_present(cm) && !allow_charger_enable))
+		return POWER_SUPPLY_STATUS_DISCHARGING;
+
+	if (cm_check_thermal_status(cm))
+		return POWER_SUPPLY_STATUS_NOT_CHARGING;
 
 	if (cm->charging_status & (CM_CHARGE_TEMP_OVERHEAT | CM_CHARGE_TEMP_COLD)) {
 		dev_warn(cm->dev, "battery overheat or cold is still abnormal\n");
@@ -3829,6 +3840,12 @@ static bool _cm_monitor(struct charger_manager *cm)
 		cm->emergency_stop = 0;
 		cm->charging_status = 0;
 		try_charger_enable(cm, true);
+
+		if (!cm_check_primary_charger_enabled(cm) && !cm->desc->force_set_full) {
+			dev_info(cm->dev, "%s, primary charger does not enable,enable it\n", __func__);
+			cm_primary_charger_enable(cm, true);
+		}
+
 		if (cm_is_need_start_cp(cm)) {
 			dev_info(cm->dev, "%s, reach pps threshold\n", __func__);
 			cm_start_cp_state_machine(cm, true);
@@ -4153,8 +4170,11 @@ static void misc_event_handler(struct charger_manager *cm, enum cm_event_types t
 
 	cm_update_charger_type_status(cm);
 
-	if (is_polling_required(cm) && cm->desc->polling_interval_ms)
-		schedule_delayed_work(&cm_monitor_work, 0);
+	if (is_polling_required(cm) && cm->desc->polling_interval_ms) {
+		_cm_monitor(cm);
+		schedule_work(&setup_polling);
+	}
+
 	power_supply_changed(cm->charger_psy);
 }
 
@@ -4557,16 +4577,21 @@ charger_set_property(struct power_supply *psy,
 		break;
 
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
-		dev_info(cm->dev, "thermal set charge power limit, thm_pwr = %dmW\n", val->intval);
-		cm->desc->thm_info.thm_pwr = val->intval;
-		cm_update_charge_info(cm, CM_CHARGE_INFO_THERMAL_LIMIT);
+		dev_info(cm->dev, "thermal set charge power limit, thm_pwr = %dmW, is_charger_mode=%d\n", val->intval,is_charger_mode);
+		if(!is_charger_mode){
+			cm->desc->thm_info.thm_pwr = val->intval;
+			cm_update_charge_info(cm, CM_CHARGE_INFO_THERMAL_LIMIT);
 
-		if (cm->desc->cp.cp_running)
-			cm_check_target_ibus(cm);
-
+			if (cm->desc->cp.cp_running)
+				cm_check_target_ibus(cm);
+		}
 		break;
 
 		case POWER_SUPPLY_PROP_CHARGE_ENABLED:
+			pr_err("%s:val=%d\n",__func__,val->intval);
+			if(val->intval == 0){
+				cm->desc->force_set_full = false;
+			}
 			for (i = 0; cm->desc->psy_charger_stat[i]; i++) {
 				psy = power_supply_get_by_name(
 						cm->desc->psy_charger_stat[i]);
@@ -5412,7 +5437,7 @@ static struct charger_desc *of_cm_parse_desc(struct device *dev)
 	struct device_node *np = dev->of_node;
 	u32 poll_mode = CM_POLL_DISABLE;
 	u32 battery_stat = CM_NO_BATTERY;
-	int ret, i = 0, num_chgs = 0;
+	int ret, i = 0, num_chgs = 0, real_num_chgs = 0;
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
@@ -5446,6 +5471,7 @@ static struct charger_desc *of_cm_parse_desc(struct device *dev)
 
 	/* chargers */
 	num_chgs = of_property_count_strings(np, "cm-chargers");
+	of_property_read_u32(np, "cm-num-chargers", &real_num_chgs);
 	if (num_chgs > 0) {
 		/* Allocate empty bin at the tail of array */
 		desc->psy_charger_stat = devm_kzalloc(dev, sizeof(char *)
@@ -5459,6 +5485,8 @@ static struct charger_desc *of_cm_parse_desc(struct device *dev)
 				else
 					of_property_read_string_index(np, "cm-chargers",
 						1, &desc->psy_charger_stat[i]);
+				if((real_num_chgs >= 1) && (real_num_chgs < num_chgs) && ((real_num_chgs - 1) == i ))
+					break;
 			}
 
 		} else {

@@ -49,7 +49,7 @@
 /* ms,-1 is wait  forever */
 #define SIPC_WRITE_TIMEOUT             -1
 
-#define LIGHT_CALI_LEAK_BACKLIGHT_LV    102
+#define LIGHT_CALI_LEAK_BACKLIGHT_LV    1638//102
 
 enum calib_cmd {
 	CALIB_EN,

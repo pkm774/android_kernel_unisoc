@@ -48,7 +48,7 @@
 #include <linux/pm_wakeup.h>
 
 #define UINT32_MAX     (0xFFFFFFFF)
-#define BACKLIGHT_LEVEL_MAX    (4095)
+#define BACKLIGHT_LEVEL_MAX    (2047)
 
 #define MAX_SENSOR_HANDLE 200
 //static u8 sensor_status[MAX_SENSOR_HANDLE];
@@ -96,7 +96,7 @@ const char calibration_filename[SENSOR_ID_END][CALIB_PATH_MAX_LENG] = {
 	"proximity",
 	"colortemp"
 };
-
+/*
 static struct {
 	int sensor_handle;
 	u8 sensor_status;
@@ -113,7 +113,7 @@ static struct {
 	{SENSOR_LIGHT_FIRST, _IDSTA_NOT, "dual light 1 name:", ""},
 	{SENSOR_LIGHT_SECOND, _IDSTA_NOT, "dual light 2 name:", ""}
 };
-
+*/
 static int debug_flag;
 static int shub_send_event_to_iio(struct shub_data *sensor, u8 *data, u16 len);
 static int shub_download_calibration_data(struct shub_data *sensor, int sensor_type);
@@ -159,7 +159,7 @@ static struct sensor_cali_info color_temp_cali_info;
 static struct sensor_cali_info light_first_cali_info;
 static struct sensor_cali_info light_second_cali_info;
 
-
+#if 0
 static void set_sensor_info(char **sensor_name, int sensor_type, int success_num)
 {
 	int i;
@@ -174,8 +174,8 @@ static void set_sensor_info(char **sensor_name, int sensor_type, int success_num
 		}
 	}
 }
-
-#if 0
+#endif
+#if 1
 static void get_sensor_info(char **sensor_name, int sensor_type, int success_num)
 {
 	int i, now_order = 0;
@@ -670,7 +670,8 @@ static void request_send_firmware(struct shub_data *sensor,
 			continue;
 		}
 		kfree(fw_data);
-		set_sensor_info(sensor_firms, sensor_type, i);
+		//set_sensor_info(sensor_firms, sensor_type, i);
+		get_sensor_info(sensor_firms, sensor_type, i);
 		dev_info(&sensor->sensor_pdev->dev, "init sensor success\n");
 		success = 1;
 		break;
@@ -1489,13 +1490,9 @@ static ssize_t batch_store(struct device *dev, struct device_attribute *attr,
 		 batch_cmd.report_rate, batch_cmd.batch_timeout, flag);
 
 	if (batch_cmd.handle == 58 || batch_cmd.handle == 8){
-		batch_cmd.report_rate = 10;
+		batch_cmd.report_rate = 100 * 1000;//us
 		dev_info(&sensor->sensor_pdev->dev, "alsps set ps report_rate 10\n");
 	}
-    if (batch_cmd.handle == 5){
-		batch_cmd.report_rate = 100;
-		dev_info(&sensor->sensor_pdev->dev, "alsps set als report_rate 100\n");
-    }
 
 	if (shub_send_command(sensor, batch_cmd.handle,
 			      SHUB_SET_BATCH_SUBTYPE,
@@ -1678,6 +1675,7 @@ static int set_als_calib_cmd(struct shub_data *sensor, u8 cmd, u8 id)
 #endif
 #define STK_LIGHT_DRV_NAME	"light_als02"
 #define LTR_LIGHT_DRV_NAME	"light_als01"
+/*
 static int calcAgain(int gain)
 {
 	u16 maxGain = 0;
@@ -1700,15 +1698,19 @@ static int calcAgain(int gain)
 
 	return maxGain/gain;
 }
+*/
 
 static int shub_als_cali_thread(void *drvdata)
 {
 	static u16 again;
-	static unsigned int caliDarkAvg[6];
-	static unsigned int caliLeakAvg[6];
-	u16 tempavg = 0, t_gain = 0;
+	//static unsigned int caliDarkAvg[6];
+	//static unsigned int caliLeakAvg[6];
+
+    int als_of_0level = 0, als_of_102level = 0;
+	//u16 tempavg = 0, t_gain = 0;
 	int err = 0;
-	int i = 0, j = 0;
+	//int i = 0, j = 0;
+	int i = 0;
 	int average_als = 0;
 	int errCount = 0;
 	char als_data[30] = {0};
@@ -1762,191 +1764,153 @@ static int shub_als_cali_thread(void *drvdata)
 		backlight_level = get_backlight_brightness();
 		pr_err("Alscali:backlight_level = %d\n", backlight_level);
 
-		switch(sensor->als_cali_cmd){
-			case CALIB_ALS_STD:
-				err = shub_sipc_read(sensor, SHUB_GET_LIGHT_RAWDATA_SUBTYPE, als_data, 2);
-				if (err < 0) {
-					pr_err("Alscali:read RegMapR_GetLightRawData failed!\n");
-					sensor->als_cali_result = CALI_ERR_CRD;
-					break;
-				}
+        err = shub_sipc_read(sensor, SHUB_GET_LIGHT_RAWDATA_SUBTYPE, als_data, 2);
+        if (err < 0) {
+            pr_err("Alscali:read RegMapR_GetLightRawData failed!\n");
+            sensor->als_cali_result = CALI_ERR_CRD;
+            break;
+        } else {
+            pr_err("Alscali:ptr[0] = %d\n", ptr[0]);
+        }
 
-				sum[0] += ptr[0];
-				pr_debug("Alscali:shub_sipc_read: ptr[0] = %d\n", ptr[0]);
-				break;
-			case CALIB_ALS_LEAK:
-				if(backlight_level != LIGHT_CALI_LEAK_BACKLIGHT_LV){
-					sensor->als_cali_result = CALI_ERR_BLW;
-					pr_err("Alscali:[leak]:Backlight level not match!\n");
-					err = -EAGAIN;
-					break;
-				}
-			case CALIB_ALS_DARK:
-				if((sensor->als_cali_cmd == CALIB_ALS_DARK) && (backlight_level != 0)){
-					sensor->als_cali_result = CALI_ERR_BLW;
-					pr_err("Alscali:[dark]:Backlight level not match!\n");
-					err = -EAGAIN;
-					break;
-				}
+        pr_err("Alscali:sensor->als_cali_cmd = %d\n", sensor->als_cali_cmd);
 
-				//if(mutex_trylock(&sensor->mutex_alsraw_lock)) {
-				//	memset(als_data, 0, sizeof(als_data));
-				//	memcpy(als_data, als_ch_raw_buf, sizeof(als_ch_raw_buf));
-				//	memset(als_ch_raw_buf, 0, sizeof(als_ch_raw_buf));
-				//	mutex_unlock(&sensor->mutex_alsraw_lock);
-				//	memcpy(&t_gain, &als_data[10], 2);
-				//	pr_err("Alscali:[leak&dark] als gain [%d]!\n", t_gain);
-				//} else {
-				//	sensor->als_cali_result = CALI_ERR_CRD;
-				//	pr_err("Alscali:[leak&dark] Cannot get mutex!\n");
-				//	err = -EBUSY;
-				//}
-				while(!mutex_trylock(&sensor->mutex_alsraw_lock)) {
-					pr_err("Alscali:[leak&dark] Cannot get mutex!\n");
-					msleep(5);
-				}
-				memset(als_data, 0, sizeof(als_data));
-				memcpy(als_data, als_ch_raw_buf, sizeof(als_ch_raw_buf));
-				memset(als_ch_raw_buf, 0, sizeof(als_ch_raw_buf));
-				mutex_unlock(&sensor->mutex_alsraw_lock);
-				memcpy(&t_gain, &als_data[10], 2);
-				pr_err("Alscali:[leak&dark] als t_gain = [%d]!\n", t_gain);
+        switch(sensor->als_cali_cmd){
+            case CALIB_ALS_STD://8
+                pr_err("Alscali:CALIB_ALS_STD enter!\n");
+                sum[0] += ptr[0];
+                pr_err("Alscali:CALIB_ALS_STD:shub_sipc_read: ptr[0] = %d, sum[0] = %d\n", ptr[0], sum[0]);
+                break;
 
-				if(err >= 0) {
-					if(again == 0) {
-						again = t_gain;
-						pr_err("Alscali:[leak&dark] again = t_gain = %d;!!!\n", t_gain);
+            case CALIB_ALS_LEAK://7
+                if(backlight_level == 0){
+                    sensor->als_cali_result = CALI_ERR_BLW;
+                    pr_err("Alscali:[leak]:Backlight level is 0\n");
+                    err = -EAGAIN;
+                    break;
+                }
+                pr_err("Alscali:CALIB_ALS_LEAK enter!\n");
 
-						if(again == 0) {
-							//sensor->als_cali_result = CALI_ERR_NMGAIN;
-							pr_err("Alscali:[leak&dark] Again is 0!!!\n");
-							//err = -EAGAIN;
-							break;
-						}
-					}
-					pr_err("Alscali:[leak&dark] again = %d, t_gain = %d;!!!\n", again, t_gain);
+                sum[2] += ptr[0];
+                pr_err("Alscali:CALIB_ALS_LEAK:shub_sipc_read: ptr[0] = %d, sum[2] = %d\n", ptr[0], sum[2]);
+                break;
+            case CALIB_ALS_DARK://6
+                if((sensor->als_cali_cmd == CALIB_ALS_DARK) && (backlight_level != 0)){
+                    sensor->als_cali_result = CALI_ERR_BLW;
+                    pr_err("Alscali:[dark]:Backlight level is not 0\n");
+                    err = -EAGAIN;
+                    break;
+                }
+                pr_err("Alscali:CALIB_ALS_DARK enter!\n");
 
-					if(again == t_gain) {
-						for(j = 0; j < 5; j++) {
-							//tempavg = ((als_data[j * 2] << 8) | als_data[(j * 2) + 1]);
-							memcpy(&tempavg, &als_data[j * 2], 2);
-							pr_err("Alscali:[leak&dark] ch[%d] = %d!\n", j, tempavg);
-							sum[j] += tempavg;
-						}
-					} else {
-						//sensor->als_cali_result = CALI_ERR_NMGAIN;
-						pr_err("Alscali:[leak&dark] again [%d] is not equal with lasttime [%d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d]!!\n", again, 
-											als_data[0],als_data[1],als_data[2],als_data[3],als_data[4],als_data[5],als_data[6],als_data[7],als_data[8],
-											als_data[9],als_data[10],als_data[11]);
-						//err = -EAGAIN;
-					}
-				}
-				break;
-			default :
-				break;
-		}
+                sum[1] += ptr[0];
+                pr_err("Alscali:CALIB_ALS_DARK:shub_sipc_read: ptr[0] = %d, sum[1] = %d\n", ptr[0], sum[1]);
+                break;
+            default :
+                pr_err("Alscali:CALIB_NONE enter!\n");
+                break;
+        }
 
         if (shub_send_command(sensor, 5, SHUB_SET_FLUSH_SUBTYPE, NULL, 0x00) < 0) {
-			pr_err("Alscali:Flush light data fail!!\n");
-		}
+            pr_err("Alscali:Flush light data fail!!\n");
+        }
 
-		msleep(200);
-		if(err >= 0) {
-			i++;
-			errCount = 0;
-		} else {
-			errCount++;
-			continue;
-		}
-	}while((i < LIGHT_CALI_DATA_COUNT) && !kthread_should_stop());
+        msleep(200);
+        if(err >= 0) {
+            i++;
+            errCount = 0;
+        } else {
+            errCount++;
+            continue;
+        }
+    }while((i < LIGHT_CALI_DATA_COUNT) && !kthread_should_stop());
 
-	if((!kthread_should_stop()) && (sensor->als_cali_result == CALI_ERR_NONE)) {
-		if((sensor->als_cali_cmd == CALIB_ALS_LEAK) || (sensor->als_cali_cmd == CALIB_ALS_DARK)) {
-			switch(sensor->als_cali_cmd) {
-				case CALIB_ALS_LEAK:
-					for(i = 0; i < 5; i++) {
-						caliLeakAvg[i] = (sum[i] * calcAgain(again)) / LIGHT_CALI_DATA_COUNT;
-						pr_err("Alscali:[leak] ch[%d] avg data is %d sum data %d!!\n", i, caliLeakAvg[i], (sum[i] * calcAgain(again)));
-					}
-					caliLeakAvg[5] = again;
-					break;
-				case CALIB_ALS_DARK:
-					for(i = 0; i < 5; i++) {
-						caliDarkAvg[i] = (sum[i] * calcAgain(again)) / LIGHT_CALI_DATA_COUNT;
-						pr_err("Alscali:[dark] ch[%d] avg data is %d sum data %d!!\n", i, caliDarkAvg[i], (sum[i] * calcAgain(again)));
-					}
-					caliDarkAvg[5] = again;
-					break;
-				default:
-					break;
-			}
+    pr_err("Alscali: i = %d, sum[1] = %d, sum[2] = %d\n", i, sum[1], sum[2]);
 
-			if((caliDarkAvg[5] != 0) && (caliLeakAvg[5] != 0)) {
-				for(i = 0; i < 5; i++) {
-					if(caliLeakAvg[i] >= caliDarkAvg[i]) {
-						average_als =  ((caliLeakAvg[i] - caliDarkAvg[i]) * LIGHT_SENSOR_CALI_DIV) / LIGHT_CALI_LEAK_BACKLIGHT_LV;
-					} else {
-						average_als = 0;
-					}
-					tempCali[i+1] = average_als;
-					pr_err("Alscali: Leak avg data [%d] Dark avg data [%d] Update tempcali[%d] = %d\n", caliLeakAvg[i], caliDarkAvg[i], (i+1), average_als);
-				}
-				memset(&caliDarkAvg, 0, sizeof(caliDarkAvg));
-				memset(&caliLeakAvg, 0, sizeof(caliLeakAvg));
-			}
-		} else if(sensor->als_cali_cmd == CALIB_ALS_STD) {
-			average_als = sum[0] / LIGHT_CALI_DATA_COUNT;
-			pr_err("Alscali: light_sum:%ld, average_als = %d\n", sum[0], average_als);
+    if((!kthread_should_stop()) && (sensor->als_cali_result == CALI_ERR_NONE)) {
+        pr_err("Alscali: sum[1] = %d, sum[2] = %d\n", sum[1], sum[2]);
+        pr_err("Alscali:sensor->als_cali_cmd = %d\n", sensor->als_cali_cmd);
+        if((sensor->als_cali_cmd == CALIB_ALS_LEAK) || (sensor->als_cali_cmd == CALIB_ALS_DARK)) {
+            pr_err("Alscali:cp avedata to tempCali!\n");
+            pr_err("Alscali: sum[1] = %d, sum[2] = %d\n", sum[1], sum[2]);
 
-			if (average_als < LIGHT_SENSOR_MIN_VALUE || average_als > LIGHT_SENSOR_MAX_VALUE) {
-				pr_err("Alscali:Average data out of range\n");
-                		sensor->als_cali_result = CALI_ERR_OOR;
-			} else {
-				tempCali[0] = LIGHT_SENSOR_CALI_VALUE / average_als;
-				pr_err("Alscali:lux cali coeff update %d\n", tempCali[0]);
-				sensor->als_cali_result = CALI_ERR_NONE;
-			}
-		}
+            switch(sensor->als_cali_cmd) {
+                case CALIB_ALS_DARK:
+                    pr_err("Alscali:cp ave dark data to tempCali[1]!\n");
 
-		if(sensor->als_cali_result == CALI_ERR_NONE) {
-			memcpy(als_data, tempCali, sizeof(tempCali));
-			err = shub_save_als_cali_data(sensor, als_data, sizeof(als_data));
-			if (err < 0) {
-				pr_err("Alscali:Save Light Sensor CalibratorData Fail\n");
-				sensor->als_cali_result = CALI_ERR_CNSAVE;
-			}
-		}
+                    als_of_0level = sum[1] *10000 / LIGHT_CALI_DATA_COUNT;
+                    sensor->als_cali_result = CALI_ERR_NONE;
+                    tempCali[1] = als_of_0level;
+                    pr_err("Alscali: als_of_0level = %d\n", als_of_0level);
+                    pr_err("Alscali: sum[1] = %d\n", sum[1]);
+                    break;
+                case CALIB_ALS_LEAK:
+                    pr_err("Alscali:cp ave leak data to tempCali[2]!\n");
 
-		if(sensor->als_cali_result == CALI_ERR_NONE) {
-			err = shub_send_command(sensor, SENSOR_TYPE_LIGHT,
-				            SHUB_SET_CALIBRATION_DATA_SUBTYPE,
-				            als_data, CALIBRATION_DATA_LENGTH);
-			if (err < 0) {
-				pr_err("Alscali:Write Light Sensor CalibratorData Fail\n");
-				sensor->als_cali_result = CALI_ERR_CSHUB;
-			} else {
-				memcpy(&(sensor->alsCoeff), tempCali, sizeof(struct als_cali_data));
-				pr_err("Alscali:Coeff data after cali:[%d, %d, %d, %d, %d, %d]\n",
-					sensor->alsCoeff.lux_coeff, sensor->alsCoeff.ch0_coeff,
-					sensor->alsCoeff.ch1_coeff, sensor->alsCoeff.ch2_coeff,
-					sensor->alsCoeff.ch3_coeff, sensor->alsCoeff.ch4_coeff);
-			}
-		}
+                    als_of_102level = sum[2] *10000 / LIGHT_CALI_DATA_COUNT;
+                    sensor->als_cali_result = CALI_ERR_NONE;
+                    tempCali[2] = als_of_102level;
+                    pr_err("Alscali: als_of_102level = %d\n", als_of_102level);
+                    pr_err("Alscali: sum[2] = %d\n", sum[2]);
+                    break;
+                default:
+                    break;
+            }
+        }
+        else if(sensor->als_cali_cmd == CALIB_ALS_STD)
+        {
+            average_als = sum[0] / LIGHT_CALI_DATA_COUNT;
+            pr_err("Alscali: light_sum:%ld, average_als = %d\n", sum[0], average_als);
 
-		pr_err("Alscali: Calibrator Done. Thread exit. [status = %d]\n", sensor->als_cali_result);
-	}
+            if (average_als < LIGHT_SENSOR_MIN_VALUE || average_als > LIGHT_SENSOR_MAX_VALUE) {
+                pr_err("Alscali:Average data out of range\n");
+                sensor->als_cali_result = CALI_ERR_OOR;
+            } else {
+                tempCali[0] = LIGHT_SENSOR_CALI_VALUE / average_als;
+                pr_err("Alscali:lux cali coeff update %d\n", tempCali[0]);
+                sensor->als_cali_result = CALI_ERR_NONE;
+            }
+        }
 
-	if((sensor->als_cali_cmd == CALIB_ALS_LEAK) || (sensor->als_cali_cmd == CALIB_ALS_DARK)) {
-		i = get_backlight_brightness();
-		err = shub_send_command(sensor, SENSOR_LIGHT, SHUB_SET_MODE, ((char *)&i), sizeof(i));
-		if (err < 0) {
-			pr_err("Alscali:Restore backlight level to cm4 failed!!\n");
-		}
-	}
-	again = 0;
-	pr_err("Alscali: Cali Exit\n");
-	sensor->caliRunning = false;
-	return 0;
+        if(sensor->als_cali_result == CALI_ERR_NONE) {
+            memcpy(als_data, tempCali, sizeof(tempCali));
+            err = shub_save_als_cali_data(sensor, als_data, sizeof(als_data));
+            if (err < 0) {
+                pr_err("Alscali:Save Light Sensor CalibratorData Fail\n");
+                sensor->als_cali_result = CALI_ERR_CNSAVE;
+            }
+        }
+
+        if(sensor->als_cali_result == CALI_ERR_NONE) {
+            err = shub_send_command(sensor, SENSOR_TYPE_LIGHT,
+                                    SHUB_SET_CALIBRATION_DATA_SUBTYPE,
+                                    als_data, CALIBRATION_DATA_LENGTH);
+            if (err < 0) {
+                pr_err("Alscali:Write Light Sensor CalibratorData Fail\n");
+                sensor->als_cali_result = CALI_ERR_CSHUB;
+            } else {
+                memcpy(&(sensor->alsCoeff), tempCali, sizeof(struct als_cali_data));
+                pr_err("Alscali:Coeff data after cali:[%d, %d, %d, %d, %d, %d]\n",
+                    sensor->alsCoeff.lux_coeff, sensor->alsCoeff.ch0_coeff,
+                    sensor->alsCoeff.ch1_coeff, sensor->alsCoeff.ch2_coeff,
+                    sensor->alsCoeff.ch3_coeff, sensor->alsCoeff.ch4_coeff);
+            }
+        }
+
+        pr_err("Alscali: Calibrator Done. Thread exit. [status = %d]\n", sensor->als_cali_result);
+    }
+
+    if((sensor->als_cali_cmd == CALIB_ALS_LEAK) || (sensor->als_cali_cmd == CALIB_ALS_DARK)) {
+        i = get_backlight_brightness();
+        err = shub_send_command(sensor, SENSOR_LIGHT, SHUB_SET_MODE, ((char *)&i), sizeof(i));
+        if (err < 0) {
+            pr_err("Alscali:Restore backlight level to cm4 failed!!\n");
+        }
+    }
+    again = 0;
+    pr_err("Alscali: Cali Exit\n");
+    sensor->caliRunning = false;
+    return 0;
 }
 
 static int shub_other_cali_thread(void *drvdata)
@@ -2649,46 +2613,6 @@ static ssize_t raw_data_als_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(raw_data_als);
 
-#define LS98XX_SLIDE_FILTER_TYPE   0
-
-#if 1
-#define FILTER_BUFFER_SIZE 20  // buffer size
-
-static u16 slide_avg_filter(u16 data)
-{
-    static u16 buf[FILTER_BUFFER_SIZE];
-    static u8 index = 0, flag = 0;
-    static u32 sum = 0;
-
-    // replace before positon data
-    sum += data - buf[index]; 
-    buf[index] = data;
-    index++;
-
-    // control loop buffer
-    if(index == FILTER_BUFFER_SIZE)
-    {
-        index = 0;
-        flag = 1;
-    }
-
-    // if buffer not full,avg current num data
-    if(flag == 0)  
-        return sum / index;
-    else   
-        return sum / FILTER_BUFFER_SIZE;
-}
-
-#else
-static u32 ps_avg_value = 0;
-static u8  ps_avg_cnt = 0;
-#define PS_AVG_NUM  15
-static u32 ls98xx_streaming_average(u32 average, u16 new_val, int count) {
-    return (average * (count - 1) + new_val) / count;
-}
-#endif
-
-u8 ls98xx_enable = 0;
 static ssize_t raw_data_ps_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -2697,13 +2621,7 @@ static ssize_t raw_data_ps_show(struct device *dev,
 	u16 *ptr = (u16 *)data;
 	int err;
 
-    //dev_err(&sensor->sensor_pdev->dev, "raw_data_ps_show : hw_sensor_id[3].pname = %s\n", hw_sensor_id[3].pname);
-
-    if (strcmp(hw_sensor_id[3].pname, "proximity_lsxxx") == 0)
-    {
-        ls98xx_enable = 1;
-    }
-    dev_err(&sensor->sensor_pdev->dev, "raw_data_ps_show : ls98xx_enable = %d\n", ls98xx_enable);
+    //dev_err(&sensor->sensor_pdev->dev, "raw_data_ps_show : ls98xx_enable = %d\n", ls98xx_enable);
 	if (sensor->mcu_mode <= SHUB_OPDOWNLOAD) {
 		dev_err(&sensor->sensor_pdev->dev, "mcu_mode == SHUB_BOOT!\n");
 		return -EINVAL;
@@ -2715,20 +2633,6 @@ static ssize_t raw_data_ps_show(struct device *dev,
 		return err;
 	}
 
-    if(ls98xx_enable == 1){
-#if 1
-        u16 tempptr = 0;
-        tempptr = slide_avg_filter(ptr[0]);
-        ptr[0] = tempptr;
-#else
-    if(ps_avg_cnt < PS_AVG_NUM) ps_avg_cnt++;
-    dev_err(&sensor->sensor_pdev->dev, "raw_data_ps_show : ps_avg_cnt = %d\n", ps_avg_cnt);
-    ps_avg_value = ls98xx_streaming_average(ps_avg_value, ptr[0], ps_avg_cnt);
-
-    dev_err(&sensor->sensor_pdev->dev, "raw_data_ps_show : ps_avg_value = %d\n", ps_avg_value);
-    ptr[0] = ps_avg_value;
-#endif
-    }
 	return sprintf(buf, "%d\n", ptr[0]);
 }
 static DEVICE_ATTR_RO(raw_data_ps);
@@ -2790,7 +2694,6 @@ static ssize_t sensor_info_show(struct device *dev,
 {
 	int i;
 	int len = 0;
-#if 0
 	const char * const SENSOR_TYPENAME[] = {
 		"acc", "mag", "gyro",
 		"prox", "light", "prs", "color"};
@@ -2808,13 +2711,6 @@ static ssize_t sensor_info_show(struct device *dev,
 
 		len += sprintf(buf + len, "\n");
 		i += 1;
-	}
-#endif
-	for (i = 0; i < ARRAY_SIZE(sensor_info); i++) {
-		len += snprintf(buf + len, PAGE_SIZE - len, "%d %s %s\n",
-			(sensor_info[i].sensor_status == _IDSTA_OK),
-			sensor_info[i].sensor_type_str,
-			sensor_info[i].sensor_name);
 	}
 
 	return len;

@@ -116,3 +116,15 @@ config USB_DWC3_SPRD
 	  Say 'Y' or 'M' if you have one such device.
 
 endif
+
+config USB_DEBUG_DETAILED_LOG
+	bool "USB detailed log for debugging"
+	depends on USB
+	help
+	 Add detailed log for debugging.
+	 It is made by samsung.
+	 It is feature for usb host class drivers.
+	 Temporarily insert at here.
+	 After merging notify layer , It is recommend to notify Kconfig.
+	 ..
+	 

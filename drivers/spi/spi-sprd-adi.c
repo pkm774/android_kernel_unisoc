@@ -108,6 +108,7 @@
 #define BIT_WDG_EN			BIT(2)
 
 /* Definition of PMIC reset status register */
+#define HWRST_STATUS_DEBUGLOW		0x10
 #define HWRST_STATUS_RECOVERY		0x20
 #define HWRST_STATUS_NORMAL		0x40
 #define HWRST_STATUS_ALARM		0x50
@@ -119,6 +120,7 @@
 #define HWRST_STATUS_AUTODLOADER	0xa0
 #define HWRST_STATUS_IQMODE		0xb0
 #define HWRST_STATUS_SPRDISK		0xc0
+#define HWRST_STATUS_DEBUGMID		0xd0
 #define HWRST_STATUS_FACTORYTEST	0xe0
 #define HWRST_STATUS_SECURITY	  	0x02
 #define HWRST_STATUS_WATCHDOG		0xf0
@@ -127,6 +129,10 @@
 #define WDG_LOAD_VAL			((50 * 32768) / 1000)
 #define WDG_LOAD_MASK			GENMASK(15, 0)
 #define WDG_UNLOCK_KEY			0xe551
+
+#define ANDROID_DEBUG_LEVEL_LOW     0x4f4c
+#define ANDROID_DEBUG_LEVEL_MID     0x494d
+#define ANDROID_DEBUG_LEVEL_HIGH    0x4948
 
 struct sprd_adi_variant_data {
 	int (*read_check)(u32 val, u32 reg_paddr);
@@ -406,6 +412,7 @@ static int sprd_adi_restart_handler(struct notifier_block *this,
 	struct sprd_adi *sadi = container_of(this, struct sprd_adi,
 					     restart_handler);
 	u32 wdt_base, val = 0, reboot_mode = 0;
+	unsigned long opt_code;
 
 	if (!cmd)
 		reboot_mode = HWRST_STATUS_NORMAL;
@@ -416,6 +423,8 @@ static int sprd_adi_restart_handler(struct notifier_block *this,
 	else if (!strncmp(cmd, "fastsleep", 9))
 		reboot_mode = HWRST_STATUS_SLEEP;
 	else if (!strncmp(cmd, "bootloader", 10))
+		reboot_mode = HWRST_STATUS_FASTBOOT;
+	else if (!strncmp(cmd, "download", 8))
 		reboot_mode = HWRST_STATUS_FASTBOOT;
 	else if (!strncmp(cmd, "panic", 5))
 		reboot_mode = HWRST_STATUS_PANIC;
@@ -433,7 +442,24 @@ static int sprd_adi_restart_handler(struct notifier_block *this,
 		reboot_mode = HWRST_STATUS_SECURITY;
 	else if (!strncmp(cmd, "factorytest", 11))
 		reboot_mode = HWRST_STATUS_FACTORYTEST;
-	else
+	else if (!strncmp(cmd, "debug", 5)){
+		 if (!kstrtoul(cmd + 5, 0, &opt_code)) {
+			switch (opt_code) {
+				case ANDROID_DEBUG_LEVEL_LOW:					
+					reboot_mode = HWRST_STATUS_DEBUGLOW;
+					break;
+				case ANDROID_DEBUG_LEVEL_MID:
+					reboot_mode = HWRST_STATUS_DEBUGMID;
+					break;
+				case ANDROID_DEBUG_LEVEL_HIGH:
+					reboot_mode = HWRST_STATUS_DEBUGMID;
+					break;
+				default:
+					reboot_mode = HWRST_STATUS_NORMAL;
+			}
+		} else
+			reboot_mode = HWRST_STATUS_NORMAL;
+	} else
 		reboot_mode = HWRST_STATUS_NORMAL;
 
 	/* Record the reboot mode */

@@ -1740,7 +1740,7 @@ static void headset_detect_all_work_func(struct work_struct *work)
 		pr_info("sprd_headset_power_init fail 0\n");
 		goto out;
 	}
-
+	headset_reg_clr_bits(ANA_HDT2, BIT(PLGPD_EN));
 	if (hdst->plug_stat_last == 0) {
 		msleep(20);
 		sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_AUD_EN);
@@ -1773,9 +1773,14 @@ static void headset_detect_all_work_func(struct work_struct *work)
 
 			if (gpio_detect_value_current != hdst->gpio_det_val_last) {
 				pr_info("software debance (step 1)!!!(headset_detect_work_func)\n");
-				headmicbias_power_on(hdst, 0);
-				pr_info("micbias power off for debance error\n");
-				goto out;
+				msleep(50);
+				gpio_detect_value_current =
+					gpio_get_value(pdata->gpios[HDST_GPIO_DET_ALL]);
+				if (gpio_detect_value_current != hdst->gpio_det_val_last) {
+//					headmicbias_power_on(hdst, 0);
+					pr_info("micbias power off for debance error\n");
+					goto out;
+				}
 			}
 
 			if (pdata->irq_trigger_levels[HDST_GPIO_DET_ALL] == 1) {
@@ -1838,7 +1843,7 @@ static void headset_detect_all_work_func(struct work_struct *work)
 		case HEADSET_NO_MIC:
 			pr_info("headset_type = %d (HEADSET_NO_MIC)\n",
 				headset_type);
-			if (times_1 < 5) {
+			if (times_1 < 3) {
 				queue_delayed_work(hdst->det_all_work_q,
 				  &hdst->det_all_work, msecs_to_jiffies(1000));
 				times_1++;
@@ -1940,6 +1945,11 @@ static void headset_detect_all_work_func(struct work_struct *work)
 		fast_charge_finished = false;
 
 		msleep(20);
+		gpio_detect_value_current =
+				gpio_get_value(pdata->gpios[HDST_GPIO_DET_ALL]);
+		if (gpio_detect_value_current == 1)
+			queue_delayed_work(hdst->det_all_work_q,
+				&hdst->det_all_work, msecs_to_jiffies(100));
 	} else {
 		times = 0;
 		times_1 = 0;
@@ -1955,7 +1965,11 @@ static void headset_detect_all_work_func(struct work_struct *work)
 out:
 	pr_info("%s type_status %d, hdst_status %d, plug_stat_last %d\n", __func__,
 		hdst->type_status, hdst->hdst_status, hdst->plug_stat_last);
-	headset_reg_clr_bits(ANA_HDT0, BIT(HEDET_LDET_L_FILTER));
+	if ((!(headset_type == HEADSET_TYPE_ERR || hdst->re_detect))
+			|| headset_type == HEADSET_4POLE_NORMAL)
+		headset_reg_set_bits(ANA_HDT2, BIT(PLGPD_EN));
+	if (headset_type != HEADSET_4POLE_NOT_NORMAL)
+		headset_reg_clr_bits(ANA_HDT0, BIT(HEDET_LDET_L_FILTER));
 	headset_reg_read(ANA_HDT0, &val);
 	pr_info("ANA_HDT0 0x%04x\n", val);
 	if (hdst->plug_stat_last == 0) {

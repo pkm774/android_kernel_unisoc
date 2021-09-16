@@ -66,6 +66,10 @@
 #include <crypto/sha.h>
 #include <asm/sections.h>
 
+#ifdef CONFIG_SEC_DEBUG
+#include <linux/sec_debug.h>
+#endif
+
 #define CORE_STR	"CORE"
 #ifndef ELF_CORE_EFLAGS
 #define ELF_CORE_EFLAGS	0
@@ -350,7 +354,7 @@ int minidump_save_extend_information(const char *name, unsigned long paddr_start
 			break;
 	}
 	minidump_info_g.section_info_total.total_num = i;
-	index = minidump_info_g.section_info_total.total_num++;
+	index = minidump_info_g.section_info_total.total_num;
 
 	if (index >= (SECTION_NUM_MAX - 1)) {
 		pr_err("No space for new section.\n");
@@ -371,6 +375,7 @@ int minidump_save_extend_information(const char *name, unsigned long paddr_start
 		minidump_info_g.section_info_total.total_size += extend_section->section_size;
 		minidump_info_g.minidump_data_size += extend_section->section_size;
 	}
+	minidump_info_g.section_info_total.total_num++;
 	pr_emerg("%s added successfully in minidump section:paddr_start=%lx,paddr_end=%lx\n",
 			name, paddr_start, paddr_end);
 	mutex_unlock(&section_mutex);
@@ -594,6 +599,58 @@ static void sysdump_prepare_info(int enter_id, const char *reason,
 
 DEFINE_PER_CPU(struct sprd_debug_core_t, sprd_debug_core_reg);
 DEFINE_PER_CPU(struct sprd_debug_mmu_reg_t, sprd_debug_mmu_reg);
+#ifdef CONFIG_SEC_DEBUG
+void copy_to_cpu_ctx(int cpu)
+{
+
+	per_cpu(sec_debug_core_reg, cpu).x0 = per_cpu(sprd_debug_core_reg, cpu).x0;
+	per_cpu(sec_debug_core_reg, cpu).x1 = per_cpu(sprd_debug_core_reg, cpu).x1;
+	per_cpu(sec_debug_core_reg, cpu).x2 = per_cpu(sprd_debug_core_reg, cpu).x2;
+	per_cpu(sec_debug_core_reg, cpu).x3 = per_cpu(sprd_debug_core_reg, cpu).x3;
+	per_cpu(sec_debug_core_reg, cpu).x4 = per_cpu(sprd_debug_core_reg, cpu).x4;
+	per_cpu(sec_debug_core_reg, cpu).x5 = per_cpu(sprd_debug_core_reg, cpu).x5;
+	per_cpu(sec_debug_core_reg, cpu).x6 = per_cpu(sprd_debug_core_reg, cpu).x6;
+	per_cpu(sec_debug_core_reg, cpu).x7 = per_cpu(sprd_debug_core_reg, cpu).x7;
+	per_cpu(sec_debug_core_reg, cpu).x8 = per_cpu(sprd_debug_core_reg, cpu).x8;
+	per_cpu(sec_debug_core_reg, cpu).x9 = per_cpu(sprd_debug_core_reg, cpu).x9;
+		
+	per_cpu(sec_debug_core_reg, cpu).x10 = per_cpu(sprd_debug_core_reg, cpu).x10;
+	per_cpu(sec_debug_core_reg, cpu).x11 = per_cpu(sprd_debug_core_reg, cpu).x11;
+	per_cpu(sec_debug_core_reg, cpu).x12 = per_cpu(sprd_debug_core_reg, cpu).x12;
+	per_cpu(sec_debug_core_reg, cpu).x13 = per_cpu(sprd_debug_core_reg, cpu).x13;
+	per_cpu(sec_debug_core_reg, cpu).x14 = per_cpu(sprd_debug_core_reg, cpu).x14;
+	per_cpu(sec_debug_core_reg, cpu).x15 = per_cpu(sprd_debug_core_reg, cpu).x15;
+	per_cpu(sec_debug_core_reg, cpu).x16 = per_cpu(sprd_debug_core_reg, cpu).x16;
+	per_cpu(sec_debug_core_reg, cpu).x17 = per_cpu(sprd_debug_core_reg, cpu).x17;
+	per_cpu(sec_debug_core_reg, cpu).x18 = per_cpu(sprd_debug_core_reg, cpu).x18;
+	per_cpu(sec_debug_core_reg, cpu).x19 = per_cpu(sprd_debug_core_reg, cpu).x19;
+
+	per_cpu(sec_debug_core_reg, cpu).x20 = per_cpu(sprd_debug_core_reg, cpu).x20;
+	per_cpu(sec_debug_core_reg, cpu).x21 = per_cpu(sprd_debug_core_reg, cpu).x21;
+	per_cpu(sec_debug_core_reg, cpu).x22 = per_cpu(sprd_debug_core_reg, cpu).x22;
+	per_cpu(sec_debug_core_reg, cpu).x23 = per_cpu(sprd_debug_core_reg, cpu).x23;
+	per_cpu(sec_debug_core_reg, cpu).x24 = per_cpu(sprd_debug_core_reg, cpu).x24;
+	per_cpu(sec_debug_core_reg, cpu).x25 = per_cpu(sprd_debug_core_reg, cpu).x25;
+	per_cpu(sec_debug_core_reg, cpu).x26 = per_cpu(sprd_debug_core_reg, cpu).x26;
+	per_cpu(sec_debug_core_reg, cpu).x27 = per_cpu(sprd_debug_core_reg, cpu).x27;
+	per_cpu(sec_debug_core_reg, cpu).x28 = per_cpu(sprd_debug_core_reg, cpu).x28;
+	per_cpu(sec_debug_core_reg, cpu).x29 = per_cpu(sprd_debug_core_reg, cpu).x29;
+	per_cpu(sec_debug_core_reg, cpu).x30 = per_cpu(sprd_debug_core_reg, cpu).x30;
+
+	per_cpu(sec_debug_core_reg, cpu).pc = per_cpu(sprd_debug_core_reg, cpu).pc;
+	per_cpu(sec_debug_core_reg, cpu).cpsr = per_cpu(sprd_debug_core_reg, cpu).pstate;
+	
+}
+
+void copy_to_mmu_ctx(int cpu)
+{
+	per_cpu(sec_debug_mmu_reg, cpu).TTBR0_EL1 = per_cpu(sprd_debug_mmu_reg, cpu).ttbr0_el1;
+	per_cpu(sec_debug_mmu_reg, cpu).TTBR1_EL1 = per_cpu(sprd_debug_mmu_reg, cpu).ttbr1_el1;
+	per_cpu(sec_debug_mmu_reg, cpu).TCR_EL1 = per_cpu(sprd_debug_mmu_reg, cpu).tcr_el1;
+	per_cpu(sec_debug_mmu_reg, cpu).MAIR_EL1 = per_cpu(sprd_debug_mmu_reg, cpu).mair_el1;
+	per_cpu(sec_debug_mmu_reg, cpu).AMAIR_EL1 = per_cpu(sprd_debug_mmu_reg, cpu).amair_el1;
+}
+#endif
 
 static inline void sprd_debug_save_context(void)
 {
@@ -601,8 +658,14 @@ static inline void sprd_debug_save_context(void)
 	local_irq_save(flags);
 	sprd_debug_save_mmu_reg(&per_cpu
 				(sprd_debug_mmu_reg, smp_processor_id()));
+	
 	sprd_debug_save_core_reg(&per_cpu
 				 (sprd_debug_core_reg, smp_processor_id()));
+
+#ifdef CONFIG_SEC_DEBUG
+	copy_to_mmu_ctx(smp_processor_id());
+	copy_to_cpu_ctx(smp_processor_id());
+#endif
 
 	pr_debug("(%s) context saved(CPU:%d)\n", __func__, smp_processor_id());
 	local_irq_restore(flags);
@@ -802,7 +865,6 @@ static int sprd_sysdump_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, sprd_sysdump_read, NULL);
 }
-
 
 static ssize_t sprd_sysdump_write(struct file *file, const char __user *buf,
 				size_t count, loff_t *data)
@@ -1620,7 +1682,7 @@ static void minidump_info_init(void)
 
 static struct notifier_block sysdump_panic_event_nb = {
 	.notifier_call	= sysdump_panic_event,
-	.priority	= INT_MAX,
+	.priority	= INT_MAX - 2,
 };
 
 static int sysdump_panic_event_init(void)

@@ -489,6 +489,14 @@ int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
 	spin_unlock_irqrestore(&pm_qos_lock, flags);
 
 	trace_pm_qos_update_target(action, prev_value, curr_value);
+
+	if (c->notifiers)
+		printk(KERN_INFO "%s - %d: %pf %s new_value=%d prev_value=%d curr_value=%d\n",
+			current->comm, current->pid,
+			c->notifiers,
+			action == PM_QOS_ADD_REQ ? "ADD_REQ" : (action == PM_QOS_UPDATE_REQ ? "UPDATE_REQ" : "REMOVE_REQ"),
+			new_value, prev_value, curr_value);
+
 	if (prev_value != curr_value) {
 		ret = 1;
 		if (c->notifiers)

@@ -1153,7 +1153,8 @@ static void dpu_dpi_init(struct dpu_context *ctx)
 		reg->dpu_cfg0 &= ~BIT(0);
 
 		/* disable Halt function for SPRD DSI */
-		reg->dpi_ctrl &= ~BIT(16);
+		//reg->dpi_ctrl &= ~BIT(16);
+		reg->dpi_ctrl |= BIT(16);
 
 		/* select te from external pad */
 		reg->dpi_ctrl |= BIT(10);

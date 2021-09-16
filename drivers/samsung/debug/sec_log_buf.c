@@ -27,7 +27,7 @@
 #include <linux/reboot.h>
 #include <linux/rtc.h>
 #include <linux/time.h>
-
+//#include <linux/memblock.h>
 #include "sec_debug_internal.h"
 
 /*
@@ -382,7 +382,14 @@ static struct console sec_log_console = {
 
 static inline int __sec_log_buf_prepare(void)
 {
+//	int err;
+
 	pr_info("printk virtual addrs phy=%pa\n", &sec_log_paddr);
+
+	//wa code 
+  // 	err = memblock_remove(0x90000000, 0xb00000);
+//	if(err<0)
+//			printk("remove memblcok  errrrrrrrrrrrrrr\n");
 
 	if (sec_debug_is_enabled())
 		s_log_buf = ioremap_wc(sec_log_paddr, sec_log_size);

@@ -47,11 +47,14 @@
 
 /*	minidump contents description macro	*/
 #define REGS_NUM_MAX 50 		/* max dump regs num in minidump,real num in regs_info_item  */
-#define SECTION_NUM_MAX 20		/* max dump section num in minidump */
-#define SECTION_NAME_MAX 20
+#define SECTION_NUM_MAX 50		/* max dump section num in minidump */
+#define SECTION_NAME_MAX 40
 #define MINIDUMP_MEM_MAX 50
 #define PT_BUF_SIZE	(2 * 1024 * 1024)
 #define EXTEND_STRING "extend"
+
+#define COMPRESSED_LEN_MALLOC_MAX       (2 * 1024)
+#define COMPRESSED_LEN_NAME     "compressed_info"
 
 enum minidump_info_type {
 	MINIDUMP_INFO_PADDR,
@@ -168,6 +171,7 @@ struct section_info_total{
 /* the struct to save minidump all infomation  */
 struct minidump_info{
 	char kernel_magic[6];  				  /* make sure minidump data valid */
+	char arch_info[8];				/* record arch info: arm32 or arm64 */
 	struct regs_info regs_info;			  /* | struct pt_regs | 			*/
 	struct regs_memory_info regs_memory_info;	  /* | memory amount regs |  , need paddr and size, if paddr invalid set it as 0  */
 	struct section_info_total section_info_total;	  /* | sections | , text,rodata,page_table ....,may be logbuf in here */
@@ -177,6 +181,7 @@ struct minidump_info{
 	int minidump_data_size;				  /* minidump data total size: regs_all_size + reg_memory_all_size + section_all_size  */
 	int compressed;					  /* indicate if minidump data compressed */
 	struct exception_info_item exception_info;	  /* exception info */
+	int compressed_info_len;			/* length of the file that record the info after compressed */
 };
 
 #endif /* __SYSDUMPDB_H__ */

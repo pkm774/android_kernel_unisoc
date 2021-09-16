@@ -41,7 +41,7 @@
 #endif
 #include <linux/soc/qcom/smem.h>
 #if IS_ENABLED(CONFIG_QCOM_SOCINFO)
-#include <soc/qcom/restart.h> */
+#include <soc/qcom/restart.h> 
 #endif
 
 #include <asm/cacheflush.h>
@@ -103,21 +103,31 @@ void (*sec_nvmem_pon_write)(u8 pon_rr) = NULL;
 DEFINE_PER_CPU(struct sec_debug_core_t, sec_debug_core_reg);
 DEFINE_PER_CPU(struct sec_debug_mmu_reg_t, sec_debug_mmu_reg);
 DEFINE_PER_CPU(enum sec_debug_upload_cause_t, sec_debug_upload_cause);
-
+#ifndef CONFIG_ARCH_SPRD
 static void sec_debug_set_qc_dload_magic(int on)
 {
 	pr_info("on=%d\n", on);
 	set_dload_mode(on);
 }
-
+#endif
 #define PON_RESTART_REASON_NOT_HANDLE	PON_RESTART_REASON_MAX
 #define RESTART_REASON_NOT_HANDLE	RESTART_REASON_END
 
+#ifdef CONFIG_ARCH_SPRD
+static enum sec_restart_reason_t __iomem *sprd_imem_base;
+static enum sec_restart_reason_t __iomem *sprd_restart_reason;
+#define IMEM_RESTART_REASON_OFFSET 0xFE0
+#define IMEM_UPLOAD_CAUSE_OFFSET 0xFE4
+#else
 /* This is shared with 'msm-poweroff.c'  module. */
 static enum sec_restart_reason_t __iomem *qcom_restart_reason;
+#endif
 
 static void sec_debug_set_upload_magic(unsigned int magic)
 {
+#ifdef CONFIG_ARCH_SPRD
+	__raw_writel(magic, sprd_restart_reason);
+#else
 	__pr_err("(%s) %x\n", __func__, magic);
 
 	if (magic != RESTART_REASON_NORMAL)
@@ -126,7 +136,7 @@ static void sec_debug_set_upload_magic(unsigned int magic)
 		sec_debug_set_qc_dload_magic(0);
 
 	__raw_writel(magic, qcom_restart_reason);
-
+#endif
 	flush_cache_all();
 	outer_flush_all();
 }
@@ -146,6 +156,9 @@ static int sec_debug_normal_reboot_handler(struct notifier_block *nb,
 	if (unlikely(!data))
 		return 0;
 
+    printk("%s\n",__func__);
+	printk("%px : %s\n", data, (char*)data);
+
 	if ((action == SYS_RESTART) &&
 		!strncmp((char *)data, "recovery", 8)) {
 		sec_get_param(param_index_reboot_recovery_cause,
@@ -157,7 +170,6 @@ static int sec_debug_normal_reboot_handler(struct notifier_block *nb,
 				      recovery_cause);
 		}
 	}
-
 	if ((action == SYS_RESTART) &&
 		!strncmp((char *)data, "param", 5)) {
 		ptr1 = strchr((char *)data, '_');
@@ -197,7 +209,12 @@ void sec_debug_update_dload_mode(const int restart_mode, const int in_panic)
 static inline void __sec_debug_set_restart_reason(
 				enum sec_restart_reason_t __r)
 {
+	printk("%s : %0x \n",__func__, (u32)__r);
+#ifdef CONFIG_ARCH_SPRD
+	__raw_writel((u32)__r, sprd_restart_reason);
+#else
 	__raw_writel((u32)__r, qcom_restart_reason);
+#endif
 }
 
 static enum pon_restart_reason __pon_restart_rory_start(
@@ -309,7 +326,9 @@ static inline void sec_debug_pm_restart(char *cmd)
 
 static void __sec_debug_hw_reset(void)
 {
+#ifndef CONFIG_ARCH_SPRD
 	sec_debug_pm_restart("sec_debug_hw_reset");
+#endif
 }
 
 #ifndef CONFIG_SEC_LOG_STORE_LAST_KMSG
@@ -510,7 +529,7 @@ void sec_debug_set_upload_cause(enum sec_debug_upload_cause_t type)
 		__raw_writel(type, upload_cause);
 		put_cpu();
 
-		pr_emerg("%x\n", type);
+		pr_emerg("%s: %x\n",__func__, type);
 	}
 }
 
@@ -726,7 +745,7 @@ static int sec_debug_panic_handler(struct notifier_block *nb,
 	/* save context here so that function call after this point doesn't
 	 * corrupt stacks below the saved sp
 	 */
-	sec_debug_save_context();
+//	sec_debug_save_context();
 	__sec_debug_hw_reset();
 
 	return 0;
@@ -755,6 +774,24 @@ static int __init __sec_debug_dt_addr_init(void)
 {
 	struct device_node *np;
 
+#ifdef CONFIG_ARCH_SPRD
+	np = of_find_compatible_node(NULL, NULL,
+			"unisoc,sprd-imem");
+	if (unlikely(!np)) {
+		pr_err("unable to find DT imem restart reason node\n");
+		return -ENODEV;
+	}
+
+	sprd_imem_base = of_iomap(np, 0);
+	if (unlikely(!sprd_imem_base)) {
+		pr_err("unable to map sprd imem base\n");
+		return -ENODEV;
+	}
+	sprd_restart_reason = (void __iomem*)(((unsigned long)sprd_imem_base + IMEM_RESTART_REASON_OFFSET));
+	upload_cause = (void __iomem*)(((unsigned long)sprd_imem_base + IMEM_UPLOAD_CAUSE_OFFSET));
+	pr_emerg(" sprd imem dt set!!!\n");
+
+#else
 	/* Using bottom of sec_dbg DDR address range
 	 * for writing restart reason
 	 */
@@ -812,7 +849,7 @@ static int __init __sec_debug_dt_addr_init(void)
 				(unsigned long long)virt_to_phys(watchdog_base));
 	}
 #endif
-
+#endif
 	return 0;
 }
 #else /* CONFIG_OF */

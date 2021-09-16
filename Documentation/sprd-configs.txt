@@ -1913,35 +1913,6 @@ CONFIG_CFG80211_REG_CELLULAR_HINTS
 	[must] user
 	[missing plat description] none
 	[function] Give top priority to country code from SIM card.
-CONFIG_CFI
-	[arch] arm64
-	[plat] qogirl6
-	[missing plat] qogirn6pro,sharkl3,sharkl5,sharkl5Pro
-	[field] code, make
-	[subsys] security
-	[must] user
-	[missing plat description] enable CFI_CLANG,while others no needs now.
-	[function] enable control flow integrity
-CONFIG_CFI_CLANG
-	[arch] arm64
-	[plat] qogirl6
-	[missing plat] qogirn6pro,sharkl3,sharkl5,sharkl5Pro
-	[field] make, code
-	[subsys] security
-	[must] user
-	[missing plat description] enable CFI_CLANG,while others no needs now.
-	[function] enables clang Control Flow Integrity (CFI), which adds
-			runtime checking for indirect function calls.
-CONFIG_CFI_CLANG_SHADOW
-	[arch] arm64
-	[plat] qogirl6
-	[missing plat] qogirn6pro,sharkl3,sharkl5,sharkl5Pro
-	[field] code
-	[subsys] security
-	[must] user
-	[missing plat description] enable CFI_CLANG,while others no needs now.
-	[function] kernel builds a fast look-up table of CFI check functions
-			in loaded modules to reduce overhead
 CONFIG_CFQ_GROUP_IOSCHED
 	[arch] all
 	[plat] pike2,qogirl6,sharkl3,sharkl3_32,sharkl5,sharkl5Pro,sharkl5_32,sharkle32

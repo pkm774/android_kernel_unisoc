@@ -1437,16 +1437,26 @@ static void sprd_sdhc_fast_hotplug_enable(struct sprd_sdhc_host *host)
 {
 	int debounce_counter = 3;
 	u32 reg_value = 0;
+	int ret = 0;
+	struct device *dev = &host->pdev->dev;
 
 	if (host->reg_rmldo_en.regmap) {
 		/* this register do not support update in bits */
-		regmap_read(host->reg_rmldo_en.regmap,
+		ret = regmap_read(host->reg_rmldo_en.regmap,
 				   host->reg_rmldo_en.reg,
 				   &reg_value);
+		if (ret < 0) {
+			dev_err(dev, "remap global register failed!\n");
+			return;
+		}
 		reg_value |= host->reg_rmldo_en.mask;
-		regmap_write(host->reg_rmldo_en.regmap,
+		ret = regmap_write(host->reg_rmldo_en.regmap,
 				   host->reg_rmldo_en.reg,
 				   reg_value);
+		if (ret < 0) {
+			dev_err(dev, "remap global register failed!\n");
+			return;
+		}
 	}
 
 	regmap_update_bits(host->reg_protect_enable.regmap,

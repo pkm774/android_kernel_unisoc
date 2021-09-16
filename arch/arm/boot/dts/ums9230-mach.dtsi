@@ -49,7 +49,7 @@
 		};
 
 		cp_reserved: cp-modem@89600000 {
-			reg = <0x89600000 0x04900000>;
+			reg = <0x89600000 0x05500000>;
 		};
 
 		/* Only used for iq, will be removed in normal mode by uboot */

@@ -55,6 +55,15 @@ static struct sprd_asoc_hook_spk_priv hook_spk_priv;
 
 static int select_mode;
 static u32 extral_iic_pa_en;
+enum ext_pa_type {
+	EXT_FSM_PA,
+	EXT_DEFAULT_PA,
+	EXT_PA_MAX,
+};
+static enum ext_pa_type ext_spk_pa_type = EXT_DEFAULT_PA;
+/* fsm rcv 1-3, fsm spk- 4-6 */
+#define FSM_RCV_DEFAULT_MODE    1
+#define FSM_SPK_DEFAULT_MODE    6
 
 static ssize_t select_mode_show(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buff)
@@ -128,6 +137,12 @@ static int ext_debug_sysfs_init(void)
 }
 
 #else
+static ssize_t ext_spk_pa_type_show(struct kobject *kobj,
+				    struct kobj_attribute *attr, char *buff)
+{
+	return sprintf(buff, "%d\n", ext_spk_pa_type);
+}
+
 static int ext_debug_sysfs_init(void)
 {
 	int ret;
@@ -136,6 +151,10 @@ static int ext_debug_sysfs_init(void)
 		__ATTR(select_mode, 0644,
 		select_mode_show,
 		select_mode_store);
+	static struct kobj_attribute chip_id_attr =
+		__ATTR(chip_id_mode, 0644,
+		ext_spk_pa_type_show,
+		NULL);
 
 	if (ext_debug_kobj)
 		return 0;
@@ -149,6 +168,12 @@ static int ext_debug_sysfs_init(void)
 	ret = sysfs_create_file(ext_debug_kobj, &ext_debug_attr.attr);
 	if (ret) {
 		pr_err("create sysfs failed. ret = %d\n", ret);
+		return ret;
+	}
+
+	ret = sysfs_create_file(ext_debug_kobj, &chip_id_attr.attr);
+	if (ret) {
+		pr_err("create chip_id sysfs failed %d\n", ret);
 		return ret;
 	}
 
@@ -176,8 +201,8 @@ static int ext_debug_sysfs_init(void)
 #define FSM_RETRY          (10)
 #define FSM_T_WORK (300) // 200-
 //rcv 1-3 spk- 4-6
-#define FSM_RCV_DEFAULT_MODE    1
-#define FSM_SPK_DEFAULT_MODE    6
+//#define FSM_RCV_DEFAULT_MODE    1
+//#define FSM_SPK_DEFAULT_MODE    6
 
 
 static __inline int fs15xx_shutdown(unsigned int gpio)
@@ -298,17 +323,36 @@ static void hook_gpio_pulse_control(unsigned int gpio, unsigned int mode)
 	int i = 1;
 	spinlock_t *lock = &hook_spk_priv.lock;
 	unsigned long flags;
+	unsigned int delay_us, mode_local;
 
+	pr_info("gpio %d, mode %d, ext_spk_pa_type %s\n", gpio, mode,
+		ext_spk_pa_type ? "EXT_DEFAULT_PA" : "EXT_FSM_PA");
 	spin_lock_irqsave(lock, flags);
-	for (i = 1; i < mode; i++) {
-		gpio_set_value(gpio, EN_LEVEL);
-		udelay(2);
+	if (ext_spk_pa_type == EXT_FSM_PA) {
 		gpio_set_value(gpio, !EN_LEVEL);
-		udelay(2);
+		udelay(400);
+		gpio_set_value(gpio, EN_LEVEL);
+		udelay(300);
+		gpio_set_value(gpio, !EN_LEVEL);
+		udelay(10);
+		mode_local = mode - 1;
+		delay_us = 10;
+	} else {
+		mode_local = mode;
+		delay_us = 2;
+	}
+
+	for (i = 1; i < mode_local; i++) {
+		gpio_set_value(gpio, EN_LEVEL);
+		udelay(delay_us);
+		gpio_set_value(gpio, !EN_LEVEL);
+		udelay(delay_us);
 	}
 
 	gpio_set_value(gpio, EN_LEVEL);
 	spin_unlock_irqrestore(lock, flags);
+	if (ext_spk_pa_type == EXT_FSM_PA)
+		udelay(300);
 }
 
 static int hook_general_spk(int id, int on)
@@ -336,28 +380,38 @@ static int hook_general_spk(int id, int on)
 	mode = hook_spk_priv.priv_data[id];
 	if (mode > GENERAL_SPK_MODE)
 		mode = 0;
-	pr_info("%s id: %d, gpio: %d, mode: %d, on: %d\n",
-		 __func__, id, gpio, mode, on);
+	if (ext_spk_pa_type == EXT_FSM_PA)
+		mode = FSM_SPK_DEFAULT_MODE;
+	pr_info("%s id: %d, gpio: %d, mode: %d, on: %d, select_mode %d, ext_spk_pa_type %s\n",
+		__func__, id, gpio, mode, on, select_mode,
+		ext_spk_pa_type ? "EXT_DEFAULT_PA" : "EXT_FSM_PA");
 
 	/* Off */
 	if (!on) {
 		gpio_set_value(gpio, !EN_LEVEL);
+		if (ext_spk_pa_type == EXT_FSM_PA)
+			udelay(400);
 		return HOOK_OK;
 	}
 
 	/* On */
 	if (select_mode) {
-		mode = select_mode;
-		pr_info("%s mode: %d, select_mode: %d\n",
-			__func__, mode, select_mode);
+		if (ext_spk_pa_type == EXT_FSM_PA) {
+			if (select_mode >= 1 && select_mode <= 6)
+				mode = select_mode;
+		} else {
+			mode = select_mode;
+		}
 	}
+
 	hook_gpio_pulse_control(gpio, mode);
 
 	/* When the first time open speaker path and play a very short sound,
 	 * the sound can't be heard. So add a delay here to make sure the AMP
 	 * is ready.
 	 */
-	msleep(22);
+	if (ext_spk_pa_type != EXT_FSM_PA)
+		msleep(22);
 
 	return HOOK_OK;
 }
@@ -517,12 +571,15 @@ static int sprd_asoc_card_parse_hook(struct device *dev,
 	const char *prop_pa_info = "sprd,spk-ext-pa-info";
 	const char *prop_pa_gpio = "sprd,spk-ext-pa-gpio";
 	const char *extral_iic_pa_info = "extral-iic-pa";
+	const char *prop_id_gpio = "sprd,spk-ext-pa-type-gpio";
 	int spk_cnt, elem_cnt, i;
 	int ret = 0;
 	unsigned long gpio_flag;
-	unsigned int ext_ctrl_type, share_gpio, hook_sel, priv_data;
+	unsigned int ext_ctrl_type, share_gpio, hook_sel, priv_data,
+		     chip_id_gpio;
 	u32 *buf;
 	u32 extral_iic_pa = 0;
+
 	ret = of_property_read_u32(np, extral_iic_pa_info, &extral_iic_pa);
 	if (!ret) {
 		sp_asoc_pr_info("%s hook aw87xx iic pa!\n", __func__);
@@ -609,8 +666,8 @@ static int sprd_asoc_card_parse_hook(struct device *dev,
 		}
 		hook_spk_priv.gpio[ext_ctrl_type] = ret;
 
-		pr_info("ext_ctrl_type %d hook_sel %d priv_data %d gpio %d",
-			ext_ctrl_type, hook_sel, priv_data, ret);
+		dev_info(dev, "%s ext_ctrl_type %d hook_sel %d priv_data %d gpio %d",
+			__func__, ext_ctrl_type, hook_sel, priv_data, ret);
 
 		gpio_flag = GPIOF_DIR_OUT;
 		gpio_flag |= ext_hook_arr[hook_sel].en_level ?
@@ -623,6 +680,26 @@ static int sprd_asoc_card_parse_hook(struct device *dev,
 			ext_hook->ext_ctrl[ext_ctrl_type] = NULL;
 			return ret;
 		}
+	}
+
+	/* Parse configs for whether support spk ext pa id */
+	ret = of_get_named_gpio_flags(np, prop_id_gpio, 0, NULL);
+	if (ret < 0) {
+		dev_err(dev, "%s not support spk ext pa id\n", __func__);
+	} else {
+		chip_id_gpio = ret;
+		gpio_flag = GPIOF_DIR_IN;
+		ret = gpio_request_one(chip_id_gpio, gpio_flag, "pa_chip_id");
+		if (ret < 0) {
+			dev_err(dev, "Gpio pa_chip_id request failed %d\n",
+				ret);
+			return 0;
+		}
+		ext_spk_pa_type = gpio_get_value(chip_id_gpio);
+		dev_info(dev,
+			 "%s 'spk-ext-pa-id-gpio' %d, ext_spk_pa_type %s\n",
+			 __func__, chip_id_gpio,
+			 ext_spk_pa_type ? "EXT_DEFAULT_PA" : "EXT_FSM_PA");
 	}
 
 	return 0;

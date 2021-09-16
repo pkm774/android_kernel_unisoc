@@ -30,6 +30,10 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/irq.h>
 
+#if IS_ENABLED(CONFIG_SEC_DEBUG)
+#include <linux/sec_debug.h>
+#endif
+
 /*
    - No shared variables, all the data are CPU local.
    - If a softirq needs serialization, let it serialize itself
@@ -284,9 +288,16 @@ restart:
 
 		kstat_incr_softirqs_this_cpu(vec_nr);
 
+#if IS_ENABLED(CONFIG_SEC_DEBUG_SCHED_LOG)
+		sec_debug_softirq_sched_log(vec_nr, h->action, "softirq", SOFTIRQ_ENTRY);
+#endif
 		trace_softirq_entry(vec_nr);
 		h->action(h);
 		trace_softirq_exit(vec_nr);
+#if IS_ENABLED(CONFIG_SEC_DEBUG_SCHED_LOG)
+		sec_debug_softirq_sched_log(vec_nr, h->action, "softirq", SOFTIRQ_EXIT);
+#endif
+
 		if (unlikely(prev_count != preempt_count())) {
 			pr_err("huh, entered softirq %u %s %p with preempt_count %08x, exited with %08x?\n",
 			       vec_nr, softirq_to_name[vec_nr], h->action,

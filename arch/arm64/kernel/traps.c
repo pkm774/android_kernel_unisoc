@@ -50,6 +50,9 @@
 #include <asm/exception.h>
 #include <asm/system_misc.h>
 #include <asm/sysreg.h>
+#if IS_ENABLED(CONFIG_SEC_DEBUG)
+#include <linux/sec_debug.h>
+#endif
 
 static const char *handler[]= {
 	"Synchronous Abort",
@@ -239,6 +242,10 @@ void die(const char *str, struct pt_regs *regs, int err)
 
 	oops_enter();
 
+#if IS_ENABLED(CONFIG_SEC_DEBUG_SCHED_LOG)
+	sec_debug_sched_msg("!!die!!");
+	sec_debug_sched_msg("!!die!!");
+#endif
 	console_verbose();
 	bust_spinlocks(1);
 	ret = __die(str, err, regs);

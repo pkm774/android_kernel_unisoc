@@ -4,6 +4,7 @@
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/clock/sprd,sc9863a-clk.h>
+#include "lcd/lcd_icnl9911c_truly_mipi_hdp.dtsi"
 #include "lcd/lcd_nt35695_truly_mipi_fhd.dtsi"
 #include "lcd/lcd_nt35532_truly_mipi_fhd.dtsi"
 #include "lcd/lcd_nt35596_boe_mipi_fhd.dtsi"
@@ -13,7 +14,7 @@
 	model = "Spreadtrum SC9863A-25C10-GO Board";
 	compatible = "sprd,sp9863a-25c10-go", "sprd,sc9863a";
 	sprd,sc-id = "sp9863a 25c10 go";
-	sprd,board_id = <0x1900>; //XX00:base board,XX00~XXFF:customize board
+	//sprd,board_id = <0x2900>; //XX00:base board,XX00~XXFF:customize board
 
 	fragment {
 		target-path = "/";
@@ -82,24 +83,32 @@
 
 			bat: battery {
 				compatible = "simple-battery";
-				charge-full-design-microamp-hours = <2780000>;
-				charge-term-current-microamp = <120000>;
-				constant_charge_voltage_max_microvolt = <4350000>;
-				factory-internal-resistance-micro-ohms = <320000>;
+				charge-full-design-microamp-hours = <4951000>;
+				charge-term-current-microamp = <60000>;
+				constant_charge_current_max_microamp = <1550000>;
+				constant_charge_voltage_max_microvolt = <4400000>;
+				factory-internal-resistance-micro-ohms = <134000>;
 				voltage-min-design-microvolt = <3450000>;
 				ocv-capacity-celsius = <20>;
-				ocv-capacity-table-0 = <4330000 100>, <4249000 95>, <4189000 90>,
-							<4133000 85>, <4081000 80>, <4034000 75>,
-							<3991000 70>, <3953000 65>, <3910000 60>,
-							<3866000 55>, <3836000 50>, <3813000 45>,
-							<3795000 40>, <3782000 35>, <3774000 30>,
-							<3765000 25>, <3750000 20>, <3726000 15>,
-							<3687000 10>, <3658000 5>, <3400000 0>;
-				capacity-temp-table = <25 100>, <10 97>, <(-10) 60>;
-				resistance-temp-table = <20 100>, <10 243>, <(-10) 468>;
+				ocv-capacity-table-0 = <4371000 100>, <4306000 95>, <4247000 90>,
+							<4190000 85>, <4135000 80>, <4082000 75>,
+							<4034000 70>, <3989000 65>, <3947000 60>,
+							<3893000 55>, <3857000 50>, <3831000 45>,
+							<3811000 40>, <3795000 35>, <3781000 30>,
+							<3763000 25>, <3744000 20>, <3720000 15>,
+							<3692000 10>, <3676000 5>,  <3400000 0>;
+				voltage-temp-table = <1092000 800>, <984000 850>, <878000 900>,
+							  <775000 950>, <679000 1000>, <591000 1050>,
+							  <511000 1100>, <440000 1150>, <378000 1200>,
+							  <324000 1250>, <278000 1300>, <238000 1350>,
+							  <204000 1400>, <175000 1450>, <150000 1500>,
+							  <129000 1550>, <111000 1600>, <96000 1650>,
+							  <83000  1700>, <72000  1750>, <63000  1800>;
+				capacity-temp-table = <50 100>, <25 100>, <10 99>, <0 93>, <(-10) 84>, <(-20) 71>;
+				resistance-temp-table = <50 107>, <25 134>, <10 238>, <0 1084>, <(-10) 1210>, <(-20) 1343>;
 				charge-sdp-current-microamp = <500000 500000>;
-				charge-dcp-current-microamp = <1150000 3000000>;
-				charge-cdp-current-microamp = <1150000 1150000>;
+				charge-dcp-current-microamp = <1550000 1600000>;
+				charge-cdp-current-microamp = <1300000 1300000>;
 				charge-unknown-current-microamp = <500000 500000>;
 			};
 
@@ -112,12 +121,13 @@
 				cm-battery-stat = <2>;
 
 				cm-fullbatt-vchkdrop-ms = <30000>;
-				cm-fullbatt-vchkdrop-volt = <60000>;
-				cm-fullbatt-voltage = <4300000>;
+				cm-fullbatt-vchkdrop-volt = <100000>;
+				cm-fullbatt-voltage = <4378000>;
 				cm-fullbatt-current = <120000>;
 				cm-fullbatt-capacity = <100>;
 
-				cm-chargers = "fan54015_charger";
+				cm-num-chargers = <1>;
+				cm-chargers = "bq2560x_charger";
 				cm-fuel-gauge = "sc27xx-fgu";
 
 				/* in deci centigrade */
@@ -126,8 +136,8 @@
 				cm-battery-hot = <800>;
 				cm-battery-temp-diff = <100>;
 
-				/* Allow charging for 6hr */
-				cm-charging-max = <21600000>;
+				/* Allow charging for 20hr */
+				cm-charging-max = <72000000>;
 				/* recovery charging after stop charging 45min */
 				cm-discharging-max = <2700000>;
 
@@ -147,22 +157,14 @@
 				cm-charge-voltage-max = <6500000>;
 				/* drop voltage in microVolts to restart charging */
 				cm-charge-voltage-drop = <700000>;
-				cm-dcp-jeita-temp-table = <1000 1030 0 4350000>,
-					<1150 1180 700000 4350000>,
-					<1450 1420 1150000 4350000>,
-					<1600 1570 700000 4100000>;
-				cm-sdp-jeita-temp-table = <1000 1030 0 4350000>,
-					<1150 1180 500000 4350000>,
-					<1450 1420 500000 4350000>,
-					<1600 1570 500000 4100000>;
-				cm-cdp-jeita-temp-table = <1000 1030 0 4350000>,
-					<1150 1180 700000 4350000>,
-					<1450 1420 1150000 4350000>,
-					<1600 1570 700000 4100000>;
-				cm-unknown-jeita-temp-table = <1000 1030 0 4350000>,
-					<1150 1180 500000 4350000>,
-					<1450 1420 500000 4350000>,
-					<1600 1570 500000 4100000>;
+				cm-dcp-jeita-temp-table = <1000 1020 0 4400000>, <1120 1140 700000 4400000>,
+					<1450 1430 1550000 4400000>, <1550 1530 1500000 4200000>;
+				cm-sdp-jeita-temp-table = <1000 1020 0 4400000>, <1120 1140 500000 4400000>,
+					<1450 1430 500000 4400000>, <1550 1530 500000 4200000>;
+				cm-cdp-jeita-temp-table = <1000 1020 0 4400000>, <1120 1140 700000 4400000>,
+					<1450 1430 1500000 4400000>, <1550 1530 1500000 4200000>;
+				cm-unknown-jeita-temp-table = <1000 1020 0 4400000>, <1120 1140 500000 4400000>,
+					<1450 1430 500000 4400000>, <1550 1530 500000 4200000>;
 
 				monitored-battery = <&bat>;
 
@@ -203,6 +205,13 @@
 					debounce-interval = <2>;
 					wakeup-source;
 				};
+			};
+			flash-gpios {
+				compatible = "sprd,flash-syx378duc";
+				flash-ic = <378>;
+				flash-en-gpios = <&ap_gpio 132 0>;
+				torch-en-gpios = <&ap_gpio 133 0>;
+				status = "okay";
 			};
 		};
 	};
@@ -268,7 +277,7 @@
 		vddcama-supply = <&vddcama>;
 		vddcamd-supply = <&vddcamd>;
 		vddcammot-supply = <&vddcammot>;
-		sprd,phyid = <4>;
+		sprd,phyid = <3>;
 		csi = <&csi0>;
 		reset-gpios = <&ap_gpio 41 0>;
 		power-down-gpios = <&ap_gpio 40 0>;
@@ -316,34 +325,13 @@
 	};
 };
 
-&i2c3 {
-	status = "okay";
-
-	adaptive-touchscreen@38 {
-		compatible = "adaptive-touchscreen";
-		reg = <0x38>;
-		gpios = <&ap_gpio 145 GPIO_ACTIVE_HIGH
-			&ap_gpio 144 GPIO_ACTIVE_HIGH>;
-		controller = "focaltech,FT5436";
-		virtualkeys = <580 60 1320 60 45
-			172 360 1320 60 45
-			158 600 1320 60 45>;
-		surface-width = <720>;
-		surface-height = <1280>;
-
-		private-data {
-			a8 = /bits/ 8 <0x5a>;
-		};
-	};
-};
-
 &i2c4 {
 	status = "okay";
 	clock-frequency = <400000>;
 
-	fan54015_chg: charger@6a {
-		compatible = "fairchild,fan54015_chg";
-		reg = <0x6a>;
+	bq2560x_chg: charger@6b {
+		compatible = "ti,bq2560x_chg";
+		reg = <0x6b>;
 		phys = <&hsphy>;
 		monitored-battery = <&bat>;
 		extcon = <&extcon_gpio>;
@@ -352,6 +340,7 @@
 		};
 	};
 
+	/*
 	flash_ic: flash-ic@63 {
 		compatible = "sprd,flash-ocp8137";
 		reg = <0x63>;
@@ -367,7 +356,7 @@
 		flash-chip-en-gpios = <&ap_gpio 89 0>;
 		flash-en-gpios = <&ap_gpio 76 0>;
 		flash-sync-gpios = <&ap_gpio 141 0>;
-	};
+	};*/
 };
 
 &i2c7 {
@@ -386,6 +375,99 @@
 	};
 };
 
+&spi1 {
+	status = "okay";
+
+	touchpanel@0 {
+		//ts common parameter
+		compatible = "touchpanel";
+		reg = <0>; //Same as CS ID
+		status = "ok";
+
+		spi-max-frequency = <9600000>;	//4800000,9600000,15000000,19200000
+
+		pinctrl-names = "gpio_144", "gpio_144_slp";
+		pinctrl-0 = <&gpio_144>;
+		pinctrl-1 = <&gpio_144_slp>;
+		ts,rst-gpio = <&ap_gpio 145 GPIO_ACTIVE_HIGH>;
+		ts,irq-gpio = <&ap_gpio 144 0x00>;
+		ges,irq-gpio = <&eic_debounce 0 GPIO_ACTIVE_HIGH>;
+
+        /*GC7202*/
+		gts,test-chip-id;
+		gts,chip-id = [72 02];
+
+		gts,test-open;
+		gts,open-cb = <200>;
+		gts,open-min = <500>;
+
+
+		gts,test-short;
+		gts,short-cb = <10>;
+		gts,short-min = <200>;
+
+		/*icnl9911c ===========start===========*/
+		touch,max-touch-number = <5>;
+		touch,display-coords =  <0 0 720 1600>;
+		cts,x-res = <720>;
+		cts,y-res = <1600>;
+
+ 		/* selftest settings */
+		cts,test-reset-pin;
+		//cts,test-int-pin;
+
+		cts,test-rawdata;
+		cts,test-rawdata-frames = <1>;
+		cts,rawdata-min = <1400>;//base 1100
+		cts,rawdata-max = <2600>;
+
+		cts,test-noise;
+		cts,test-noise-frames = <16>;
+		cts,noise-max = <80>;
+
+		cts,test-open;
+		cts,open-min = <2772>;
+
+		cts,test-short;
+		cts,short-min = <500>;
+
+		//cts,test-compensate-cap;
+		cts,compensate-cap-min = <1>;
+		cts,compensate-cap-max = <126>;
+
+		/* Charger detect */
+		cts,touch-charger-detect-enable;
+		cts,touch-charger-detect-type = "notify"; /* notify, poll */
+		cts,touch-charger-detect-psy-name = "battery";
+		cts,touch-charger-detect-psp = "POWER_SUPPLY_PROP_ONLINE";
+		cts,touch-charger-detect-psp-poll-interval = <1000>;
+
+		/* Earjack detect */
+		cts,touch-earjack-detect-enable;
+		/* MTK:  /sys/bus/platform/drivers/Accdet_Driver/state,
+		Sprd: /sys/kernel/headset/state
+		QCOM: None, and disable it */
+		cts,touch-earjack-state-filepath = "/sys/kernel/headset/state";
+		cts,touch-earjack-poll-interval = <1000>;
+		/*icnl9911c ===========end===========*/
+
+		/*nt36525B*/
+		/* 672A, 525B, 675, 526, 672C */
+		nvt,swrst-n8-addr = <0x03F0FE>;
+		nvt,spi-rd-fast-addr = <0x03F310>;
+		/* Charger detect */
+		nvt,touch-charger-detect-enable;
+		nvt,touch-charger-detect-type = "notify"; /* notify, poll */
+		nvt,touch-charger-detect-psy-name = "battery";
+		nvt,touch-charger-detect-psp = "POWER_SUPPLY_PROP_ONLINE";
+		nvt,touch-charger-detect-psp-poll-interval = <1000>;
+		/* MP */
+		nvt,mp-support-dt;
+
+		#include "sp9863a-25c10_go-overlay-nvt_mp_pid7234.dtsi"
+	};
+};
+
 &pmic_fgu {
 	monitored-battery = <&bat>;
 	sprd,calib-resistance-real = <20000>;
@@ -399,9 +481,9 @@
 };
 
 &panel {
-	sprd,backlight = <&pwm_backlight>;
-	sprd,surface-width = <720>;
-	sprd,surface-height = <1280>;
+	avdd-gpio = <&ap_gpio 4 GPIO_ACTIVE_HIGH>;
+	avee-gpio = <&ap_gpio 5 GPIO_ACTIVE_HIGH>;
+	reset-gpio = <&ap_gpio 50 GPIO_ACTIVE_HIGH>;
 };
 
 &ddr_dfs {
@@ -512,6 +594,11 @@
 		pins = "SHARKL3_EXTINT0";
 		function = "func4";
 	};
+	
+	gpio_144_slp: ges_int {
+        pins = "SHARKL3_EXTINT0";
+        function = "func1";
+    };
 
 	gpio_145: extint1 {
 		pins = "SHARKL3_EXTINT1";
@@ -603,6 +690,18 @@
 	fb_reserved: framebuffer@ff4ee000 {
 		reg = <0x0 0xff4ee000 0x0 0x00a92000>;
 	};
+};
+
+&sprd_headset {
+	status = "okay";
+	sprd,spk-route-hp;
+};
+
+&sound_vbc_r1p0v3_sprd_codec {
+	status = "okay";
+	sprd,spk-ext-pa-info = <0 0 2 0>;
+	sprd,spk-ext-pa-gpio = <&ap_gpio 156 0>;
+	sprd,spk-ext-pa-type-gpio = <&ap_gpio 90 0>;
 };
 
 &ion {

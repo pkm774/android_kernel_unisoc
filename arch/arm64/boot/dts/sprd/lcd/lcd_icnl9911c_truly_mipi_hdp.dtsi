@@ -9,7 +9,7 @@
 						sprd,dsi-lane-number = <4>;
 						sprd,dsi-color-format = "rgb888";
 
-						sprd,phy-bit-clock = <693000>;	/* kbps */
+						sprd,phy-bit-clock = <660000>;	/* kbps */
 						sprd,phy-escape-clock = <20000>;/* kHz */
 
 						sprd,width-mm = <68>;
@@ -83,29 +83,30 @@
 						sprd,cabc-ui-mode = [
 							39 00 00 03 F0 5A 59
 							39 00 00 03 F1 A5 A6
-							39 00 00 1B E0 30 01 A0 98 01 1F 22 62 DF A0 04 CC 01 FD F5 F8 F0 FD FF F9 F8 F6 FC FC F0 FF
-							39 00 00 18 E1 DD DE EE EE FF FF F0 AE D6 FF 28 51 7C EE F4 0B 46 84 C1 FF 00 07 D0//PWM=20K
+							39 00 00 1B E0 30 01 A0 98 01 1F 22 62 DF A0 04 CC 01 FF F8 F8 FA FD F9 F8 F8 F8 FC FC F0 FF
+							39 00 00 18 E1 DF FF EF FE FF FF F0 AE 35 35 35 51 35 35 F4 35 32 5B 84 AE 00 06 39//PWM=20K
+							39 00 00 03 EA 46 50
 							39 00 00 03 F1 5A 59
 							39 00 00 03 F0 A5 A6
 							15 00 00 02 55 01
-							];
+						];
 
 						sprd,cabc-mov-mode = [
 							39 00 00 03 F0 5A 59
 							39 00 00 03 F1 A5 A6
-							39 00 00 1B E0 30 01 A0 98 01 1F 22 62 DF A0 04 CC 01 FE F0 F0 F0 FD F2 FC F8 F6 F2 FC F0 FF
-							39 00 00 18 E1 AA AB BB CC CD EF F0 3C 89 D6 23 70 BD 8C BF F6 CB 79 50 FF 00 07 D0//PWM=20K
+							39 00 00 1B E0 30 01 A0 98 01 1F 22 62 DF A0 04 CC 01 FF FC FC F0 FD FF FC F8 FC F2 FC F0 FF
+							39 00 00 18 E1 CC CC CC CC CD DE E0 CC D0 D0 D0 D0 D0 D0 D0 D0 73 EE 6D EE 00 06 39//PWM=20K
 							39 00 00 03 EA 46 50
 							39 00 00 03 F1 5A 59
 							39 00 00 03 F0 A5 A6
 							15 00 00 02 55 03
-							];
+						];
 
 						sprd,cabc-off-mode = [
 							15 00 00 02 55 00
-							];
+						];
 						oled-backlight {
-							default-brightness-level = <1023>;
+							default-brightness-level = <101>;
 							sprd,max-level = <4095>;
 							brightness-levels = [
 								39 00 00 03 51 0F FF
